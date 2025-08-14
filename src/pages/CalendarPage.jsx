@@ -20,6 +20,7 @@ export default function CalendarPage(){
   const { selectedDate, setSelectedDate } = useDateContext()
   const [showCalendar, setShowCalendar] = useState(false)
   const [todos, setTodos] = useState([])
+  const [allTodos, setAllTodos] = useState([]) // 캘린더 표시용 전체 할 일 데이터
   const [loading, setLoading] = useState(false)
   const { toast, showToast, hideToast } = useToast()
   const navigate = useNavigate()
@@ -29,30 +30,71 @@ export default function CalendarPage(){
     loadTodosForDate(selectedDate)
   }, [selectedDate])
 
-  // 페이지에 포커스가 돌아올 때 데이터 새로고침
+  // 전체 할 일 불러오기 (캘린더 표시용)
   useEffect(() => {
-    const handleFocus = () => {
-      loadTodosForDate(selectedDate)
+    loadAllTodos()
+  }, [])
+
+  // 페이지에 포커스가 돌아올 때와 페이지가 표시될 때 데이터 새로고침
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadTodosForDate(selectedDate)
+        loadAllTodos() // 전체 할 일도 새로고침
+      }
     }
 
+    const handleFocus = () => {
+      loadTodosForDate(selectedDate)
+      loadAllTodos() // 전체 할 일도 새로고침
+    }
+
+    // 페이지가 표시될 때도 새로고침
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [selectedDate])
 
-  const loadTodosForDate = async (date) => {
-    setLoading(true)
+  const loadAllTodos = async () => {
     try {
-      const dateString = formatISODate(date)
-      const q = await query(
-        await collection(db, 'todos'),
-        await where('date', '==', dateString),
-        await orderBy('createdAt', 'desc')
-      )
+      const collectionRef = await collection(db, 'todos')
+      const whereCondition = await where('date', '!=', null) // 날짜가 null이 아닌 모든 할 일
+      const q = await query(collectionRef, whereCondition)
+      
       const querySnapshot = await getDocs(q)
       const items = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }))
+      console.log('Loaded all todos for calendar:', items)
+      setAllTodos(items)
+    } catch (error) {
+      console.error('Error loading all todos:', error)
+      setAllTodos([])
+    }
+  }
+
+  const loadTodosForDate = async (date) => {
+    setLoading(true)
+    try {
+      const dateString = formatISODate(date)
+      console.log('Loading todos for date:', dateString)
+      
+      const collectionRef = await collection(db, 'todos')
+      const whereCondition = await where('date', '==', dateString)
+      const orderCondition = await orderBy('createdAt', 'desc')
+      const q = await query(collectionRef, whereCondition, orderCondition)
+      
+      const querySnapshot = await getDocs(q)
+      const items = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      console.log('Loaded todos:', items)
       setTodos(items)
     } catch (error) {
       console.error('Error loading todos:', error)
@@ -148,72 +190,77 @@ export default function CalendarPage(){
 
         {/* 본문 */}
         <div style={{ minHeight: '400px' }} className="sm:min-h-[500px] md:min-h-[600px]">
-          {showCalendar ? (
-            <div className="w-full max-w-md mx-auto sm:max-w-lg">
+          {/* 캘린더 (확장시에만 표시) */}
+          {showCalendar && (
+            <div className="w-full max-w-md mx-auto sm:max-w-lg mb-6 sm:mb-8">
               <Calendar 
                 selectedDate={selectedDate}
                 onDateSelect={handleDateSelect}
+                todosData={allTodos}
               />
             </div>
-          ) : (
-            <div>
-              <div className="text-center mb-6 sm:mb-8">
-                <p className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-800">
-                  {format(selectedDate, 'yyyy년 M월 d일')}
-                </p>
-              </div>
-
-              {loading ? (
-                <div className="text-center py-8 text-gray-500 flex items-center justify-center gap-2">
-                  <LoadingSpinner />
-                  로딩 중...
-                </div>
-              ) : todos.length === 0 ? (
-                <div className="card text-center text-gray-500">
-                  <p className="text-base sm:text-lg md:text-xl">이 날짜에 할 일이 없습니다</p>
-                  <p className="mt-3 sm:mt-4 text-sm sm:text-base">아래 버튼을 눌러 할 일을 추가해보세요</p>
-                </div>
-              ) : (
-                <div className="space-y-3 sm:space-y-4">
-                  {todos.map(todo => (
-                    <div key={todo.id} className="card hover:shadow-md transition-shadow">
-                      <div className="flex items-center gap-4">
-                        {/* 완료 체크박스 */}
-                        <button
-                          onClick={() => toggleCompleted(todo.id, todo.completed)}
-                          className={`
-                            w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center transition-colors
-                            ${todo.completed 
-                              ? 'bg-green-500 border-green-500 text-white' 
-                              : 'border-gray-300 hover:border-green-400 active:border-green-500'
-                            }
-                          `}
-                        >
-                          {todo.completed && <span className="text-base sm:text-lg">✓</span>}
-                        </button>
-
-                        {/* 태그 색상 표시 */}
-                        <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full ${TAG_COLORS[todo.tag]}`} />
-
-                        {/* 제목 */}
-                        <div className="flex-1 min-w-0">
-                          <h3 className={`
-                            font-semibold transition-all text-base sm:text-lg md:text-xl
-                            ${todo.completed 
-                              ? 'text-gray-500 line-through' 
-                              : 'text-gray-900'
-                            }
-                          `} style={{ lineHeight: '1.5' }}>
-                            {todo.title}
-                          </h3>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           )}
+
+          {/* 할 일 목록 (항상 표시) */}
+          <div>
+            {loading ? (
+              <div className="text-center py-8 text-gray-500 flex items-center justify-center gap-2">
+                <LoadingSpinner />
+                로딩 중...
+              </div>
+            ) : todos.length === 0 ? (
+              <div className="card text-center text-gray-500">
+                <p className="text-base sm:text-lg md:text-xl">이 날짜에 할 일이 없습니다</p>
+                <p className="mt-3 sm:mt-4 text-sm sm:text-base">아래 버튼을 눌러 할 일을 추가해보세요</p>
+              </div>
+            ) : (
+              <div className="space-y-3 sm:space-y-4">
+                {todos.map(todo => (
+                  <div key={todo.id} className="card hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-4">
+                      {/* 완료 체크박스 */}
+                      <button
+                        onClick={() => toggleCompleted(todo.id, todo.completed)}
+                        className={`
+                          w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center transition-colors
+                          ${todo.completed 
+                            ? 'bg-green-500 border-green-500 text-white' 
+                            : 'border-gray-300 hover:border-green-400 active:border-green-500'
+                          }
+                        `}
+                      >
+                        {todo.completed && <span className="text-base sm:text-lg">✓</span>}
+                      </button>
+
+                      {/* 태그 색상 표시 */}
+                      <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full ${TAG_COLORS[todo.tag]}`} />
+
+                      {/* 제목 */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`
+                          font-semibold transition-all text-base sm:text-lg md:text-xl
+                          ${todo.completed 
+                            ? 'text-gray-500 line-through' 
+                            : 'text-gray-900'
+                          }
+                        `} style={{ lineHeight: '1.5' }}>
+                          {todo.title}
+                        </h3>
+                      </div>
+
+                      {/* 편집 버튼 */}
+                      <button
+                        onClick={() => navigate(`/edit/${todo.id}`)}
+                        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        <span className="text-base sm:text-lg">✏️</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -56,17 +56,29 @@ export const getDocs = async (queryObj) => {
     let filteredItems = [...mockTodos]
     
     // 쿼리 조건 적용
-    if (queryObj && queryObj.conditions) {
+    if (queryObj && queryObj.conditions && Array.isArray(queryObj.conditions)) {
       queryObj.conditions.forEach(condition => {
+        console.log('Processing condition:', condition)
         if (condition.field === 'date' && condition.operator === '==' && condition.value === null) {
           // 백로그: date가 null인 항목
           filteredItems = filteredItems.filter(todo => todo.date === null)
         } else if (condition.field === 'date' && condition.operator === '==' && condition.value) {
           // 특정 날짜: date가 해당 값인 항목
           filteredItems = filteredItems.filter(todo => todo.date === condition.value)
+        } else if (condition.field === 'date' && condition.operator === '!=') {
+          // date가 특정 값이 아닌 항목
+          if (condition.value === null) {
+            // date가 null이 아닌 항목 (날짜가 배정된 항목)
+            filteredItems = filteredItems.filter(todo => todo.date !== null)
+          } else {
+            // date가 특정 값이 아닌 항목
+            filteredItems = filteredItems.filter(todo => todo.date !== condition.value)
+          }
         }
       })
     }
+    
+    console.log('Filtered items:', filteredItems.length)
     
     // 정렬 (createdAt desc가 기본)
     filteredItems.sort((a, b) => {
@@ -90,20 +102,34 @@ export const updateDoc = async (docRef, updates) => {
     return await firebaseUpdateDoc(docRef, updates)
   } else {
     // Mock 구현
-    console.log('Mock updateDoc:', docRef, updates)
+    console.log('Mock updateDoc called with:', { docRef, updates })
+    console.log('Current mockTodos before update:', mockTodos)
+    
     const todoIndex = mockTodos.findIndex(todo => todo.id === docRef)
+    console.log('Found todo at index:', todoIndex)
+    
     if (todoIndex !== -1) {
+      const oldTodo = { ...mockTodos[todoIndex] }
       mockTodos[todoIndex] = {
         ...mockTodos[todoIndex],
         ...updates,
         updatedAt: new Date()
       }
       
+      console.log('Updated todo:', { 
+        old: oldTodo, 
+        new: mockTodos[todoIndex] 
+      })
+      
       // 날짜가 배정되면 백로그에서 제거 (date가 null이 아니게 됨)
       if (updates.date) {
-        console.log('Item moved to scheduled:', mockTodos[todoIndex])
+        console.log('Item moved to scheduled with date:', updates.date)
       }
+    } else {
+      console.log('Todo not found with id:', docRef)
     }
+    
+    console.log('Current mockTodos after update:', mockTodos)
     return true
   }
 }
@@ -137,7 +163,8 @@ export const query = async (collectionRef, ...conditions) => {
     return firebaseQuery(collectionRef, ...conditions)
   } else {
     // Mock 쿼리 객체
-    return { collection: collectionRef, conditions }
+    console.log('Mock query created with conditions:', conditions)
+    return { collection: collectionRef, conditions: conditions }
   }
 }
 
@@ -160,5 +187,26 @@ export const orderBy = async (field, direction = 'asc') => {
   } else {
     // Mock orderBy 조건
     return { field, direction }
+  }
+}
+
+export const deleteDoc = async (docRef) => {
+  if (db) {
+    // 실제 Firebase deleteDoc 함수 사용
+    const { deleteDoc: firebaseDeleteDoc } = await import('firebase/firestore')
+    return await firebaseDeleteDoc(docRef)
+  } else {
+    // Mock 구현
+    console.log('Mock deleteDoc called with:', docRef)
+    const todoIndex = mockTodos.findIndex(todo => todo.id === docRef)
+    
+    if (todoIndex !== -1) {
+      const deletedTodo = mockTodos.splice(todoIndex, 1)[0]
+      console.log('Deleted todo:', deletedTodo)
+      return true
+    } else {
+      console.log('Todo not found for deletion:', docRef)
+      throw new Error('Document not found')
+    }
   }
 }

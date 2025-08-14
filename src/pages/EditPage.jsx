@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { format, parse, addDays, subDays } from 'date-fns'
+import { useNavigate, useParams } from 'react-router-dom'
+import { format, addDays, subDays } from 'date-fns'
 import { useDateContext } from '../hooks/useDateContext'
-import { addDoc } from '../lib/firebase'
+import { getDocs, updateDoc, deleteDoc, doc, collection, query, where, db } from '../lib/firebase'
 import { useToast } from '../hooks/useToast'
-import { formatISODate } from '../utils/dateUtils'
+import { formatISODate, fromISO } from '../utils/dateUtils'
 import Calendar from '../components/Calendar'
 import Toast from '../components/Toast'
 
@@ -15,9 +15,9 @@ const TAG_COLORS = [
   { id: 'red', name: '빨강', class: 'bg-red-500', border: 'border-red-500' }
 ]
 
-export default function AddPage() {
+export default function EditPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const { id } = useParams()
   const { setSelectedDate } = useDateContext()
   const titleInputRef = useRef(null)
 
@@ -28,35 +28,57 @@ export default function AddPage() {
   })
   const [showCalendar, setShowCalendar] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const { toast, showToast, hideToast } = useToast()
 
-
-  // 초기값 설정 및 키보드 이벤트 처리
+  // 할 일 데이터 불러오기
   useEffect(() => {
-    const dateParam = searchParams.get('date')
-    if (dateParam) {
-      try {
-        const parsedDate = parse(dateParam, 'yyyy.MM.dd', new Date())
-        setFormData(prev => ({ ...prev, date: parsedDate }))
-      } catch {
-        // 잘못된 날짜 형식이면 오늘 날짜 사용
-        setFormData(prev => ({ ...prev, date: new Date() }))
+    loadTodoData()
+  }, [id])
+
+  const loadTodoData = async () => {
+    setLoading(true)
+    try {
+      // Mock에서는 전체 todos 배열에서 해당 ID 찾기
+      const q = await query(await collection(db, 'todos'))
+      const querySnapshot = await getDocs(q)
+      const todos = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      
+      const todo = todos.find(t => t.id === id)
+      
+      if (todo) {
+        setFormData({
+          title: todo.title,
+          date: todo.date ? new Date(todo.date + 'T00:00:00') : null,
+          tag: todo.tag
+        })
+      } else {
+        showToast('할 일을 찾을 수 없습니다', 'error')
+        navigate('/')
       }
+    } catch (error) {
+      console.error('Error loading todo:', error)
+      showToast('네트워크 오류, 다시 시도해주세요', 'error')
+      navigate('/')
+    } finally {
+      setLoading(false)
     }
-    // 백로그에서 온 경우 (date 파라미터가 없는 경우) null로 설정
-    else if (window.location.pathname === '/add' && !dateParam) {
-      setFormData(prev => ({ ...prev, date: null }))
-    }
-    
-    // 자동 포커스
-    if (titleInputRef.current) {
+  }
+
+  // 초기 포커스
+  useEffect(() => {
+    if (!loading && titleInputRef.current) {
       titleInputRef.current.focus()
     }
+  }, [loading])
 
-    // 키보드 이벤트 핸들러
+  // 키보드 이벤트 처리
+  useEffect(() => {
     const handleKeyDown = (e) => {
-      // Esc 키로 팝오버 닫기
       if (e.key === 'Escape' && showCalendar) {
         setShowCalendar(false)
         e.preventDefault()
@@ -65,7 +87,7 @@ export default function AddPage() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [searchParams, showCalendar])
+  }, [showCalendar])
 
   const handleTitleChange = (e) => {
     const value = e.target.value
@@ -105,44 +127,68 @@ export default function AddPage() {
     setError('')
 
     try {
-      await addDoc('todos', {
+      const todoRef = await doc(db, 'todos', id)
+      await updateDoc(todoRef, {
         title: formData.title.trim(),
         date: formData.date ? formatISODate(formData.date) : null,
         tag: formData.tag,
-        completed: false,
-        createdAt: new Date()
+        updatedAt: new Date()
       })
 
-      // 성공 토스트 표시
-      showToast('할 일이 등록되었습니다', 'success')
+      showToast('할 일이 수정되었습니다', 'success')
 
       // 성공 시 이동 처리
       if (formData.date) {
-        // 날짜가 있으면 홈으로 이동하고 날짜 동기화
         setSelectedDate(formData.date)
         navigate('/')
       } else {
-        // 날짜가 없으면 백로그로 이동
         navigate('/backlog')
       }
     } catch (err) {
       showToast('네트워크 오류, 다시 시도해주세요', 'error')
-      console.error('Error adding todo:', err)
+      console.error('Error updating todo:', err)
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Enter 키로 등록하기 (유효할 때만)
-  const handleKeyPress = (e) => {
-    const isValid = formData.title.trim().length > 0
-    if (e.key === 'Enter' && isValid && !isLoading) {
-      handleSubmit(e)
+  const handleDelete = async () => {
+    if (!window.confirm('정말 삭제하시겠습니까?')) {
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const todoRef = await doc(db, 'todos', id)
+      await deleteDoc(todoRef)
+
+      showToast('할 일이 삭제되었습니다', 'success')
+      navigate('/')
+    } catch (err) {
+      showToast('네트워크 오류, 다시 시도해주세요', 'error')
+      console.error('Error deleting todo:', err)
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const goBack = () => {
-    navigate(-1) // 이전 페이지로 돌아가기
+    navigate(-1)
+  }
+
+  if (loading) {
+    return (
+      <section style={{ marginBottom: '80px' }}>
+        <div style={{ marginBottom: '32px' }}>
+          <div className="flex items-center justify-center mb-6 sm:mb-8">
+            <div className="px-6 py-3 font-semibold text-gray-600 text-base sm:text-lg md:text-xl bg-gray-50 rounded-lg">
+              로딩 중...
+            </div>
+          </div>
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -159,8 +205,24 @@ export default function AddPage() {
             <span className="text-xl sm:text-2xl md:text-3xl">←</span>
           </button>
 
-          {/* 중앙 날짜/제목 영역 */}
-          {formData.date ? (
+          {/* 중앙 제목 영역 */}
+          <div className="px-6 py-3 font-semibold text-gray-600 text-base sm:text-lg md:text-xl bg-gray-50 rounded-lg">
+            할 일 편집
+          </div>
+
+          {/* 삭제 버튼 */}
+          <button 
+            onClick={handleDelete}
+            className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-red-100 active:bg-red-200 rounded-lg transition-colors"
+            disabled={isLoading}
+          >
+            <span className="text-xl sm:text-2xl md:text-3xl text-red-500">🗑️</span>
+          </button>
+        </div>
+
+        {/* 날짜 네비게이션 (날짜가 있을 때만) */}
+        {formData.date && (
+          <div className="flex items-center justify-center mb-6 sm:mb-8">
             <div className="flex items-center gap-2 sm:gap-3">
               <button 
                 onClick={goToPrevDay}
@@ -180,18 +242,11 @@ export default function AddPage() {
                 <span className="text-lg sm:text-xl md:text-2xl">▶</span>
               </button>
             </div>
-          ) : (
-            <div className="px-6 py-3 font-semibold text-gray-600 text-base sm:text-lg md:text-xl bg-gray-50 rounded-lg">
-              백로그 항목 추가
-            </div>
-          )}
-
-          {/* 우측 빈 공간 (대칭을 위해) */}
-          <div className="w-12 h-12 sm:w-14 sm:h-14"></div>
-        </div>
+          </div>
+        )}
 
         {/* 폼 */}
-        <form id="add-form" onSubmit={handleSubmit} style={{ marginBottom: '24px' }}>
+        <form id="edit-form" onSubmit={handleSubmit} style={{ marginBottom: '24px' }}>
           <div style={{ marginBottom: '24px' }}>
             {/* 제목 입력 */}
             <div style={{ marginBottom: '24px' }}>
@@ -203,7 +258,6 @@ export default function AddPage() {
                 type="text"
                 value={formData.title}
                 onChange={handleTitleChange}
-                onKeyPress={handleKeyPress}
                 placeholder="해야할 일을 입력하세요"
                 className="input"
                 disabled={isLoading}
@@ -227,26 +281,23 @@ export default function AddPage() {
                 <div className="px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 flex-1 text-base sm:text-lg" style={{ minHeight: '48px', display: 'flex', alignItems: 'center' }}>
                   {formData.date ? format(formData.date, 'yyyy.MM.dd') : '날짜 미정 (백로그)'}
                 </div>
-                {/* 백로그 등록이 아닌 경우에만 캘린더 버튼 표시 */}
+                <button
+                  type="button"
+                  onClick={() => setShowCalendar(!showCalendar)}
+                  className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
+                  disabled={isLoading}
+                >
+                  <span className="text-xl sm:text-2xl">📅</span>
+                </button>
                 {formData.date && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowCalendar(!showCalendar)}
-                      className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
-                      disabled={isLoading}
-                    >
-                      <span className="text-xl sm:text-2xl">📅</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, date: null }))}
-                      className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg text-red-500 transition-colors"
-                      disabled={isLoading}
-                    >
-                      <span className="text-xl sm:text-2xl">✕</span>
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, date: null }))}
+                    className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg text-red-500 transition-colors"
+                    disabled={isLoading}
+                  >
+                    <span className="text-xl sm:text-2xl">✕</span>
+                  </button>
                 )}
               </div>
               
@@ -295,7 +346,6 @@ export default function AddPage() {
                 {error}
               </div>
             )}
-
           </div>
         </form>
       </div>

@@ -3,6 +3,7 @@ import TopNav from './components/TopNav'
 import BottomCTA from './components/BottomCTA'
 import CalendarPage from './pages/CalendarPage'
 import AddPage from './pages/AddPage'
+import EditPage from './pages/EditPage'
 import BacklogPage from './pages/BacklogPage'
 import SettingsPage from './pages/SettingsPage'
 
@@ -24,6 +25,7 @@ export default function App(){
       <Route element={<ShellLayout/>}>
         <Route path="/" element={<CalendarPage/>} />
         <Route path="/add" element={<AddPage/>} />
+        <Route path="/edit/:id" element={<EditPage/>} />
         <Route path="/backlog" element={<BacklogPage/>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

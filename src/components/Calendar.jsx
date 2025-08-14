@@ -12,7 +12,7 @@ import {
 } from 'date-fns'
 import { useState } from 'react'
 
-export default function Calendar({ selectedDate, onDateSelect }) {
+export default function Calendar({ selectedDate, onDateSelect, todosData = [] }) {
   const [currentMonth, setCurrentMonth] = useState(selectedDate)
 
   const monthStart = startOfMonth(currentMonth)
@@ -31,6 +31,12 @@ export default function Calendar({ selectedDate, onDateSelect }) {
 
   const goToNextMonth = () => {
     setCurrentMonth(prevMonth => addMonths(prevMonth, 1))
+  }
+
+  // 특정 날짜에 할 일이 있는지 확인하는 함수
+  const hasTodosOnDate = (date) => {
+    const dateString = format(date, 'yyyy-MM-dd')
+    return todosData.some(todo => todo.date === dateString)
   }
 
   return (
@@ -69,13 +75,14 @@ export default function Calendar({ selectedDate, onDateSelect }) {
           const isCurrentMonth = isSameMonth(day, currentMonth)
           const isSelected = isSameDay(day, selectedDate)
           const isToday = isSameDay(day, new Date())
+          const hasTodos = hasTodosOnDate(day)
 
           return (
             <button
               key={day.toISOString()}
               onClick={() => onDateSelect(day)}
               className={`
-                text-center rounded-lg transition-colors text-sm sm:text-base md:text-lg font-medium
+                text-center rounded-lg transition-colors text-sm sm:text-base md:text-lg font-medium relative
                 ${!isCurrentMonth 
                   ? 'text-gray-300' 
                   : 'text-gray-900 hover:bg-gray-100 active:bg-gray-200'
@@ -94,7 +101,23 @@ export default function Calendar({ selectedDate, onDateSelect }) {
                 minHeight: '44px'
               }}
             >
-              {format(day, 'd')}
+              <div className="flex flex-col items-center justify-center">
+                <span>{format(day, 'd')}</span>
+                {/* 할 일이 있는 날에 동그라미 표시 */}
+                {hasTodos && isCurrentMonth && (
+                  <div 
+                    className={`
+                      w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full mt-0.5
+                      ${isSelected 
+                        ? 'bg-white' 
+                        : isToday 
+                          ? 'bg-blue-600' 
+                          : 'bg-blue-500'
+                      }
+                    `}
+                  />
+                )}
+              </div>
             </button>
           )
         })}
