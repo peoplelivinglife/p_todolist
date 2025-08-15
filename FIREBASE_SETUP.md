@@ -1,26 +1,26 @@
 # Firebase 설정 가이드
 
-## 1. Firebase 프로젝트 생성
+MyDayList 앱에서 Google 로그인과 Firestore 데이터베이스를 사용하려면 Firebase 프로젝트를 설정해야 합니다.
+
+## 1. Firebase 프로젝트 설정
 
 1. [Firebase Console](https://console.firebase.google.com/)에 접속
-2. "프로젝트 추가" 클릭
-3. 프로젝트 이름 입력 (예: `mydaylist`)
-4. Google Analytics 설정 (선택사항)
-5. 프로젝트 생성 완료
+2. 기존 프로젝트 `ducklylist` 사용 또는 새 프로젝트 생성
+3. 프로젝트 설정 > 일반 탭에서 웹 앱 추가
 
-## 2. Firestore Database 설정
+## 2. Authentication 설정
 
-1. Firebase Console에서 "Firestore Database" 메뉴 선택
-2. "데이터베이스 만들기" 클릭
-3. **테스트 모드**로 시작 (개발용)
-   - 실제 배포 시에는 프로덕션 모드 권장
-4. 리전 선택 (asia-northeast3 - 서울 권장)
+1. Firebase 콘솔에서 **Authentication** 선택
+2. **Sign-in method** 탭 클릭
+3. **Google** 로그인 제공업체 활성화
+4. 프로젝트 공개용 이름과 지원 이메일 설정
 
-## 3. 웹 앱 추가
+## 3. Firestore Database 설정
 
-1. Firebase Console 프로젝트 개요에서 웹 아이콘 클릭
-2. 앱 닉네임 입력
-3. Firebase 구성 정보 복사
+1. Firebase 콘솔에서 **Firestore Database** 선택
+2. **데이터베이스 만들기** 클릭
+3. **프로덕션 모드에서 시작** 선택 (보안 규칙은 아래 참조)
+4. 위치 선택 (asia-northeast3 - Seoul 권장)
 
 ## 4. 환경 설정
 

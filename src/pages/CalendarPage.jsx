@@ -3,7 +3,8 @@ import { addDays, subDays, format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import Calendar from '../components/Calendar'
 import { useDateContext } from '../hooks/useDateContext'
-import { getDocs, updateDoc, doc, collection, query, where, orderBy, db } from '../lib/firebase'
+import { updateUserTodo, getUserTodos, createWhereCondition } from '../lib/firestore'
+import { useAuth } from '../hooks/useAuth.jsx'
 import { formatISODate } from '../utils/dateUtils'
 import { useToast } from '../hooks/useToast'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -18,6 +19,7 @@ const TAG_COLORS = {
 
 export default function CalendarPage(){
   const { selectedDate, setSelectedDate } = useDateContext()
+  const { user } = useAuth()
   const [showCalendar, setShowCalendar] = useState(false)
   const [todos, setTodos] = useState([])
   const [allTodos, setAllTodos] = useState([]) // 캘린더 표시용 전체 할 일 데이터
@@ -27,49 +29,65 @@ export default function CalendarPage(){
 
   // 선택된 날짜의 할 일 불러오기
   useEffect(() => {
-    loadTodosForDate(selectedDate)
-  }, [selectedDate])
+    if (user) {
+      loadTodosForDate(selectedDate)
+    }
+  }, [selectedDate, user])
 
   // 전체 할 일 불러오기 (캘린더 표시용)
   useEffect(() => {
-    loadAllTodos()
-  }, [])
+    if (user) {
+      loadAllTodos()
+    }
+  }, [user])
 
   // 페이지에 포커스가 돌아올 때와 페이지가 표시될 때 데이터 새로고침
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && user) {
         loadTodosForDate(selectedDate)
         loadAllTodos() // 전체 할 일도 새로고침
       }
     }
 
     const handleFocus = () => {
-      loadTodosForDate(selectedDate)
-      loadAllTodos() // 전체 할 일도 새로고침
+      if (user) {
+        loadTodosForDate(selectedDate)
+        loadAllTodos() // 전체 할 일도 새로고침
+      }
+    }
+
+    const handleNavigation = () => {
+      if (user) {
+        // 네비게이션 후 약간의 지연을 두고 데이터 새로고침
+        setTimeout(() => {
+          loadTodosForDate(selectedDate)
+          loadAllTodos()
+        }, 100)
+      }
     }
 
     // 페이지가 표시될 때도 새로고침
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleFocus)
+    window.addEventListener('pageshow', handleNavigation)
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('pageshow', handleNavigation)
     }
-  }, [selectedDate])
+  }, [selectedDate, user])
 
   const loadAllTodos = async () => {
+    if (!user) {
+      setAllTodos([])
+      return
+    }
+    
     try {
-      const collectionRef = await collection(db, 'todos')
-      const whereCondition = await where('date', '!=', null) // 날짜가 null이 아닌 모든 할 일
-      const q = await query(collectionRef, whereCondition)
-      
-      const querySnapshot = await getDocs(q)
-      const items = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
+      const whereCondition = createWhereCondition('date', '!=', null) // 날짜가 null이 아닌 모든 할 일
+      const items = await getUserTodos(user.uid, [whereCondition])
       console.log('Loaded all todos for calendar:', items)
       setAllTodos(items)
     } catch (error) {
@@ -80,22 +98,28 @@ export default function CalendarPage(){
 
   const loadTodosForDate = async (date) => {
     setLoading(true)
+    if (!user) {
+      setTodos([])
+      setLoading(false)
+      return
+    }
+    
     try {
       const dateString = formatISODate(date)
-      console.log('Loading todos for date:', dateString)
+      console.log('Loading todos for date:', dateString, 'for user:', user.uid)
       
-      const collectionRef = await collection(db, 'todos')
-      const whereCondition = await where('date', '==', dateString)
-      const orderCondition = await orderBy('createdAt', 'desc')
-      const q = await query(collectionRef, whereCondition, orderCondition)
+      const whereCondition = createWhereCondition('date', '==', dateString)
+      // 인덱스 문제를 피하기 위해 orderBy 조건 제거
+      const items = await getUserTodos(user.uid, [whereCondition])
       
-      const querySnapshot = await getDocs(q)
-      const items = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      console.log('Loaded todos:', items)
-      setTodos(items)
+      // 클라이언트 사이드에서 정렬
+      const sortedItems = items.sort((a, b) => {
+        if (a.order && b.order) return a.order - b.order
+        return new Date(b.createdAt || b.updatedAt) - new Date(a.createdAt || a.updatedAt)
+      })
+      
+      console.log('Loaded todos:', sortedItems)
+      setTodos(sortedItems)
     } catch (error) {
       console.error('Error loading todos:', error)
       // 에러가 있어도 빈 배열로 설정
@@ -107,11 +131,14 @@ export default function CalendarPage(){
 
   // 완료 상태 토글
   const toggleCompleted = async (todoId, currentCompleted) => {
+    if (!user) {
+      showToast('로그인이 필요합니다', 'error')
+      return
+    }
+    
     try {
-      const todoRef = await doc(db, 'todos', todoId)
-      await updateDoc(todoRef, {
-        completed: !currentCompleted,
-        updatedAt: new Date()
+      await updateUserTodo(user.uid, todoId, {
+        completed: !currentCompleted
       })
       
       // 로컬 상태 업데이트

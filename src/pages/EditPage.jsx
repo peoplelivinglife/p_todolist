@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { format, addDays, subDays } from 'date-fns'
 import { useDateContext } from '../hooks/useDateContext'
-import { getDocs, updateDoc, deleteDoc, doc, collection, query, where, db } from '../lib/firebase'
+import { getUserTodos, updateUserTodo, deleteUserTodo } from '../lib/firestore'
+import { useAuth } from '../hooks/useAuth.jsx'
 import { useToast } from '../hooks/useToast'
 import { formatISODate, fromISO } from '../utils/dateUtils'
 import Calendar from '../components/Calendar'
 import Toast from '../components/Toast'
+import { trackTodoEvent } from '../utils/analytics'
 
 const TAG_COLORS = [
   { id: 'blue', name: '파랑', class: 'bg-blue-500', border: 'border-blue-500' },
@@ -18,6 +20,7 @@ const TAG_COLORS = [
 export default function EditPage() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const { user } = useAuth()
   const { setSelectedDate } = useDateContext()
   const titleInputRef = useRef(null)
 
@@ -34,20 +37,23 @@ export default function EditPage() {
 
   // 할 일 데이터 불러오기
   useEffect(() => {
-    loadTodoData()
-  }, [id])
+    if (user) {
+      loadTodoData()
+    }
+  }, [id, user])
 
   const loadTodoData = async () => {
     setLoading(true)
+    if (!user) {
+      setLoading(false)
+      showToast('로그인이 필요합니다', 'error')
+      navigate('/')
+      return
+    }
+    
     try {
-      // Mock에서는 전체 todos 배열에서 해당 ID 찾기
-      const q = await query(await collection(db, 'todos'))
-      const querySnapshot = await getDocs(q)
-      const todos = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      
+      // 사용자의 모든 할 일을 가져와서 ID로 찾기
+      const todos = await getUserTodos(user.uid)
       const todo = todos.find(t => t.id === id)
       
       if (todo) {
@@ -127,12 +133,21 @@ export default function EditPage() {
     setError('')
 
     try {
-      const todoRef = await doc(db, 'todos', id)
-      await updateDoc(todoRef, {
+      if (!user) {
+        showToast('로그인이 필요합니다', 'error')
+        return
+      }
+      
+      await updateUserTodo(user.uid, id, {
         title: formData.title.trim(),
         date: formData.date ? formatISODate(formData.date) : null,
-        tag: formData.tag,
-        updatedAt: new Date()
+        tag: formData.tag
+      })
+
+      // Google Analytics 이벤트 추적
+      trackTodoEvent('todo_update', {
+        hasDate: !!formData.date,
+        tag: formData.tag
       })
 
       showToast('할 일이 수정되었습니다', 'success')
@@ -160,8 +175,15 @@ export default function EditPage() {
     setIsLoading(true)
 
     try {
-      const todoRef = await doc(db, 'todos', id)
-      await deleteDoc(todoRef)
+      if (!user) {
+        showToast('로그인이 필요합니다', 'error')
+        return
+      }
+      
+      await deleteUserTodo(user.uid, id)
+
+      // Google Analytics 이벤트 추적
+      trackTodoEvent('todo_delete', {})
 
       showToast('할 일이 삭제되었습니다', 'success')
       navigate('/')

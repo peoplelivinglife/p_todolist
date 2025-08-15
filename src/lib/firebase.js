@@ -1,5 +1,17 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore } from 'firebase/firestore'
+import { 
+  getFirestore,
+  collection as firebaseCollection,
+  doc as firebaseDoc,
+  addDoc as firebaseAddDoc,
+  getDocs as firebaseGetDocs,
+  updateDoc as firebaseUpdateDoc,
+  deleteDoc as firebaseDeleteDoc,
+  query as firebaseQuery,
+  where as firebaseWhere,
+  orderBy as firebaseOrderBy
+} from 'firebase/firestore'
+import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,27 +25,47 @@ const firebaseConfig = {
 // Firebase 초기화 (환경변수가 있을 때만)
 let app = null
 export let db = null
+export let auth = null
+export let googleProvider = null
 
-if (firebaseConfig.apiKey) {
-  app = initializeApp(firebaseConfig)
-  db = getFirestore(app)
-  console.log('Firebase initialized with real config')
+console.log('Environment variables:', {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY ? 'exists' : 'missing',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID
+})
+
+if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'your_api_key_here') {
+  try {
+    app = initializeApp(firebaseConfig)
+    db = getFirestore(app)
+    auth = getAuth(app)
+    googleProvider = new GoogleAuthProvider()
+    console.log('✅ Firebase initialized successfully:', {
+      projectId: firebaseConfig.projectId,
+      authDomain: firebaseConfig.authDomain,
+      hasApiKey: !!firebaseConfig.apiKey,
+      dbConnected: !!db,
+      authConnected: !!auth
+    })
+  } catch (error) {
+    console.error('❌ Firebase initialization error:', error)
+  }
 } else {
   console.log('Firebase running in mock mode - add environment variables for real Firebase')
+  console.log('Current config:', firebaseConfig)
 }
 
 // Mock 데이터 (초기에는 빈 배열로 시작)
 let mockTodos = []
 
-// Mock 함수들 (환경변수가 없을 때 사용)
-export const addDoc = async (collectionName, data) => {
+// Firebase 함수들 (실제 Firebase 또는 Mock)
+export const addDoc = async (collectionRef, data) => {
   if (db) {
     // 실제 Firebase 사용
-    const { addDoc: firebaseAddDoc, collection } = await import('firebase/firestore')
-    return await firebaseAddDoc(collection(db, collectionName), data)
+    return await firebaseAddDoc(collectionRef, data)
   } else {
     // Mock 구현
-    console.log('Mock addDoc:', collectionName, data)
+    console.log('Mock addDoc:', collectionRef, data)
     const newItem = {
       ...data,
       id: Date.now().toString(),
@@ -47,7 +79,6 @@ export const addDoc = async (collectionName, data) => {
 export const getDocs = async (queryObj) => {
   if (db) {
     // 실제 Firebase 사용
-    const { getDocs: firebaseGetDocs } = await import('firebase/firestore')
     return await firebaseGetDocs(queryObj)
   } else {
     // Mock 구현
@@ -98,7 +129,6 @@ export const getDocs = async (queryObj) => {
 export const updateDoc = async (docRef, updates) => {
   if (db) {
     // 실제 Firebase 사용
-    const { updateDoc: firebaseUpdateDoc } = await import('firebase/firestore')
     return await firebaseUpdateDoc(docRef, updates)
   } else {
     // Mock 구현
@@ -134,10 +164,9 @@ export const updateDoc = async (docRef, updates) => {
   }
 }
 
-export const doc = async (database, collectionName, id) => {
+export const doc = (database, collectionName, id) => {
   if (db) {
     // 실제 Firebase doc 함수 사용
-    const { doc: firebaseDoc } = await import('firebase/firestore')
     return firebaseDoc(database, collectionName, id)
   } else {
     // Mock에서는 ID만 반환
@@ -145,10 +174,9 @@ export const doc = async (database, collectionName, id) => {
   }
 }
 
-export const collection = async (database, name) => {
+export const collection = (database, name) => {
   if (db) {
     // 실제 Firebase collection 함수 사용
-    const { collection: firebaseCollection } = await import('firebase/firestore')
     return firebaseCollection(database, name)
   } else {
     // Mock에서는 컬렉션 이름만 반환
@@ -156,10 +184,9 @@ export const collection = async (database, name) => {
   }
 }
 
-export const query = async (collectionRef, ...conditions) => {
+export const query = (collectionRef, ...conditions) => {
   if (db) {
     // 실제 Firebase query 함수 사용
-    const { query: firebaseQuery } = await import('firebase/firestore')
     return firebaseQuery(collectionRef, ...conditions)
   } else {
     // Mock 쿼리 객체
@@ -168,10 +195,9 @@ export const query = async (collectionRef, ...conditions) => {
   }
 }
 
-export const where = async (field, operator, value) => {
+export const where = (field, operator, value) => {
   if (db) {
     // 실제 Firebase where 함수 사용
-    const { where: firebaseWhere } = await import('firebase/firestore')
     return firebaseWhere(field, operator, value)
   } else {
     // Mock where 조건
@@ -179,10 +205,9 @@ export const where = async (field, operator, value) => {
   }
 }
 
-export const orderBy = async (field, direction = 'asc') => {
+export const orderBy = (field, direction = 'asc') => {
   if (db) {
     // 실제 Firebase orderBy 함수 사용
-    const { orderBy: firebaseOrderBy } = await import('firebase/firestore')
     return firebaseOrderBy(field, direction)
   } else {
     // Mock orderBy 조건
@@ -193,7 +218,6 @@ export const orderBy = async (field, direction = 'asc') => {
 export const deleteDoc = async (docRef) => {
   if (db) {
     // 실제 Firebase deleteDoc 함수 사용
-    const { deleteDoc: firebaseDeleteDoc } = await import('firebase/firestore')
     return await firebaseDeleteDoc(docRef)
   } else {
     // Mock 구현

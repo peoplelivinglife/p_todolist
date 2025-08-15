@@ -97,17 +97,17 @@ export default function Calendar({ selectedDate, onDateSelect, todosData = [] })
                 }
               `}
               style={{ 
-                padding: '12px 8px',
-                minHeight: '44px'
+                padding: '8px 8px 12px 8px',
+                minHeight: '48px'
               }}
             >
-              <div className="flex flex-col items-center justify-center">
+              <div className="relative flex items-center justify-center w-full h-full">
                 <span>{format(day, 'd')}</span>
-                {/* 할 일이 있는 날에 동그라미 표시 */}
+                {/* 할 일이 있는 날에 동그라미 표시 - 숫자와 분리된 위치 */}
                 {hasTodos && isCurrentMonth && (
                   <div 
                     className={`
-                      w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full mt-0.5
+                      absolute bottom-[-4px] w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full
                       ${isSelected 
                         ? 'bg-white' 
                         : isToday 

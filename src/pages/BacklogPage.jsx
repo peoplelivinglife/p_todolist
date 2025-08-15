@@ -1,15 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
-  getDocs, 
-  updateDoc, 
-  doc, 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  db 
-} from '../lib/firebase'
+  getUserTodos, 
+  updateUserTodo, 
+  createWhereCondition
+} from '../lib/firestore'
+import { useAuth } from '../hooks/useAuth.jsx'
 import { useToast } from '../hooks/useToast'
 import { formatISODate } from '../utils/dateUtils'
 import Calendar from '../components/Calendar'
@@ -25,6 +21,7 @@ const TAG_COLORS = {
 
 export default function BacklogPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [todos, setTodos] = useState([])
   const [overdueTodos, setOverdueTodos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -34,24 +31,60 @@ export default function BacklogPage() {
 
   // 백로그 및 지연된 할일 조회
   useEffect(() => {
-    loadBacklogItems()
-    loadOverdueItems()
-  }, []) // loadBacklogItems, loadOverdueItems는 컴포넌트 내부에서 정의된 안정적인 함수
+    if (user) {
+      loadBacklogItems()
+      loadOverdueItems()
+    }
+  }, [user]) // loadBacklogItems, loadOverdueItems는 컴포넌트 내부에서 정의된 안정적인 함수
+
+  // 페이지 포커스 시 데이터 새로고침
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        loadBacklogItems()
+        loadOverdueItems()
+      }
+    }
+
+    const handleNavigation = () => {
+      if (user) {
+        // 네비게이션 후 약간의 지연을 두고 데이터 새로고침
+        setTimeout(() => {
+          loadBacklogItems()
+          loadOverdueItems()
+        }, 100)
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('pageshow', handleNavigation)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('pageshow', handleNavigation)
+    }
+  }, [user])
 
   const loadBacklogItems = async () => {
     setLoading(true)
+    if (!user) {
+      setTodos([])
+      setLoading(false)
+      return
+    }
+    
     try {
-      const q = query(
-        collection(db, 'todos'),
-        where('date', '==', null),
-        orderBy('order', 'asc')
-      )
-      const querySnapshot = await getDocs(q)
-      const items = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      setTodos(items)
+      const whereCondition = createWhereCondition('date', '==', null)
+      // 인덱스 문제를 피하기 위해 orderBy 조건 제거
+      const items = await getUserTodos(user.uid, [whereCondition])
+      
+      // 클라이언트 사이드에서 정렬
+      const sortedItems = items.sort((a, b) => {
+        if (a.order && b.order) return a.order - b.order
+        return new Date(b.createdAt || b.updatedAt) - new Date(a.createdAt || a.updatedAt)
+      })
+      
+      setTodos(sortedItems)
     } catch (error) {
       console.error('Error loading backlog:', error)
       showToast('네트워크 오류, 다시 시도해주세요', 'error')
@@ -62,17 +95,15 @@ export default function BacklogPage() {
 
   // 지연된 할일 조회 (오늘날짜 > 지정된 날짜 && 완료되지 않음)
   const loadOverdueItems = async () => {
+    if (!user) {
+      setOverdueTodos([])
+      return
+    }
+    
     try {
-      const q = query(
-        collection(db, 'todos'),
-        where('date', '!=', null),
-        orderBy('date', 'asc')
-      )
-      const querySnapshot = await getDocs(q)
-      const items = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
+      const whereCondition = createWhereCondition('date', '!=', null)
+      // 인덱스 문제를 피하기 위해 orderBy 조건 제거
+      const items = await getUserTodos(user.uid, [whereCondition])
       
       // 오늘 날짜
       const today = new Date()
@@ -86,7 +117,12 @@ export default function BacklogPage() {
         return todoDate < today // 오늘보다 이전 날짜
       })
       
-      setOverdueTodos(overdueItems)
+      // 클라이언트 사이드에서 날짜순 정렬
+      const sortedOverdueItems = overdueItems.sort((a, b) => {
+        return new Date(a.date) - new Date(b.date)
+      })
+      
+      setOverdueTodos(sortedOverdueItems)
     } catch (error) {
       console.error('Error loading overdue items:', error)
     }
@@ -94,11 +130,14 @@ export default function BacklogPage() {
 
   // 완료 상태 토글
   const toggleCompleted = async (todoId, currentCompleted) => {
+    if (!user) {
+      showToast('로그인이 필요합니다', 'error')
+      return
+    }
+    
     try {
-      const todoRef = doc(db, 'todos', todoId)
-      await updateDoc(todoRef, {
-        completed: !currentCompleted,
-        updatedAt: new Date()
+      await updateUserTodo(user.uid, todoId, {
+        completed: !currentCompleted
       })
       
       // 로컬 상태 업데이트
@@ -128,11 +167,14 @@ export default function BacklogPage() {
 
   // 날짜 배정
   const assignDate = async (todoId, date) => {
+    if (!user) {
+      showToast('로그인이 필요합니다', 'error')
+      return
+    }
+    
     try {
-      const todoRef = await doc(db, 'todos', todoId)
-      await updateDoc(todoRef, {
-        date: formatISODate(date),
-        updatedAt: new Date()
+      await updateUserTodo(user.uid, todoId, {
+        date: formatISODate(date)
       })
       
       // 성공 시 리스트에서 제거

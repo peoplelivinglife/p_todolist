@@ -3,10 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { format, parse, addDays, subDays } from 'date-fns'
 import { useDateContext } from '../hooks/useDateContext'
 import { addDoc } from '../lib/firebase'
+import { addUserTodo } from '../lib/firestore'
+import { useAuth } from '../hooks/useAuth.jsx'
 import { useToast } from '../hooks/useToast'
 import { formatISODate } from '../utils/dateUtils'
 import Calendar from '../components/Calendar'
 import Toast from '../components/Toast'
+import { trackTodoEvent } from '../utils/analytics'
 
 const TAG_COLORS = [
   { id: 'blue', name: '파랑', class: 'bg-blue-500', border: 'border-blue-500' },
@@ -19,6 +22,7 @@ export default function AddPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { setSelectedDate } = useDateContext()
+  const { user } = useAuth()
   const titleInputRef = useRef(null)
 
   const [formData, setFormData] = useState({
@@ -26,14 +30,21 @@ export default function AddPage() {
     date: new Date(),
     tag: TAG_COLORS[0].id
   })
+
   const [showCalendar, setShowCalendar] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [dateManuallyChanged, setDateManuallyChanged] = useState(false) // 사용자가 수동으로 날짜 변경했는지 추적
   const { toast, showToast, hideToast } = useToast()
 
 
   // 초기값 설정 및 키보드 이벤트 처리
   useEffect(() => {
+    // 사용자가 수동으로 날짜를 변경한 경우 URL 파라미터 무시
+    if (dateManuallyChanged) {
+      return
+    }
+    
     const dateParam = searchParams.get('date')
     if (dateParam) {
       try {
@@ -65,7 +76,7 @@ export default function AddPage() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [searchParams, showCalendar])
+  }, [searchParams, showCalendar, dateManuallyChanged])
 
   const handleTitleChange = (e) => {
     const value = e.target.value
@@ -76,15 +87,18 @@ export default function AddPage() {
   }
 
   const handleDateSelect = (date) => {
+    setDateManuallyChanged(true) // 사용자가 수동으로 날짜 변경했음을 표시
     setFormData(prev => ({ ...prev, date }))
     setShowCalendar(false)
   }
 
   const goToPrevDay = () => {
+    setDateManuallyChanged(true)
     setFormData(prev => ({ ...prev, date: subDays(prev.date, 1) }))
   }
 
   const goToNextDay = () => {
+    setDateManuallyChanged(true)
     setFormData(prev => ({ ...prev, date: addDays(prev.date, 1) }))
   }
 
@@ -105,12 +119,38 @@ export default function AddPage() {
     setError('')
 
     try {
-      await addDoc('todos', {
+      console.log('Attempting to save todo:', {
+        user: user ? user.uid : 'no user',
         title: formData.title.trim(),
         date: formData.date ? formatISODate(formData.date) : null,
-        tag: formData.tag,
-        completed: false,
-        createdAt: new Date()
+        tag: formData.tag
+      })
+
+      // 실제 Firebase를 사용할 수 있는 경우 사용자별 데이터 저장
+      if (user) {
+        console.log('Saving to Firebase with user:', user.uid)
+        await addUserTodo(user.uid, {
+          title: formData.title.trim(),
+          date: formData.date ? formatISODate(formData.date) : null,
+          tag: formData.tag,
+          completed: false
+        })
+      } else {
+        // Mock 모드
+        console.log('Saving to mock mode')
+        await addDoc('todos', {
+          title: formData.title.trim(),
+          date: formData.date ? formatISODate(formData.date) : null,
+          tag: formData.tag,
+          completed: false,
+          createdAt: new Date()
+        })
+      }
+
+      // Google Analytics 이벤트 추적
+      trackTodoEvent('todo_create', {
+        hasDate: !!formData.date,
+        tag: formData.tag
       })
 
       // 성공 토스트 표시
@@ -126,8 +166,13 @@ export default function AddPage() {
         navigate('/backlog')
       }
     } catch (err) {
-      showToast('네트워크 오류, 다시 시도해주세요', 'error')
       console.error('Error adding todo:', err)
+      console.error('Error details:', {
+        message: err.message,
+        code: err.code,
+        stack: err.stack
+      })
+      showToast(`네트워크 오류: ${err.message}`, 'error')
     } finally {
       setIsLoading(false)
     }
@@ -170,7 +215,7 @@ export default function AddPage() {
                 <span className="text-lg sm:text-xl md:text-2xl">◀</span>
               </button>
               <div className="px-4 sm:px-6 py-2 sm:py-3 font-semibold text-base sm:text-lg md:text-xl text-center bg-gray-50 rounded-lg min-w-[140px] sm:min-w-[160px]">
-                {format(formData.date, 'yyyy.MM.dd')}
+                {format(new Date(formData.date), 'yyyy.MM.dd')}
               </div>
               <button 
                 onClick={goToNextDay}
@@ -224,36 +269,54 @@ export default function AddPage() {
                 날짜
               </label>
               <div className="flex items-center gap-3">
-                <div className="px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 flex-1 text-base sm:text-lg" style={{ minHeight: '48px', display: 'flex', alignItems: 'center' }}>
-                  {formData.date ? format(formData.date, 'yyyy.MM.dd') : '날짜 미정 (백로그)'}
+                <div 
+                  className={`px-4 py-3 border rounded-lg flex-1 text-base sm:text-lg cursor-pointer ${
+                    formData.date 
+                      ? 'border-gray-300 bg-gray-50' 
+                      : 'border-blue-300 bg-blue-50 hover:bg-blue-100'
+                  }`}
+                  style={{ minHeight: '48px', display: 'flex', alignItems: 'center' }}
+                  onClick={() => !formData.date && setShowCalendar(true)}
+                >
+                  {formData.date ? (
+                    <span>
+                      {format(new Date(formData.date), 'yyyy.MM.dd')}
+                    </span>
+                  ) : (
+                    <span className="text-blue-600">
+                      📅 날짜 선택하기 (현재: 백로그)
+                    </span>
+                  )}
                 </div>
-                {/* 백로그 등록이 아닌 경우에만 캘린더 버튼 표시 */}
+                {/* 항상 캘린더 버튼 표시 */}
+                <button
+                  type="button"
+                  onClick={() => setShowCalendar(!showCalendar)}
+                  className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
+                  disabled={isLoading}
+                >
+                  <span className="text-xl sm:text-2xl">📅</span>
+                </button>
+                {/* 날짜가 설정된 경우에만 제거 버튼 표시 */}
                 {formData.date && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowCalendar(!showCalendar)}
-                      className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
-                      disabled={isLoading}
-                    >
-                      <span className="text-xl sm:text-2xl">📅</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, date: null }))}
-                      className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg text-red-500 transition-colors"
-                      disabled={isLoading}
-                    >
-                      <span className="text-xl sm:text-2xl">✕</span>
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateManuallyChanged(true)
+                      setFormData(prev => ({ ...prev, date: null }))
+                    }}
+                    className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg text-red-500 transition-colors"
+                    disabled={isLoading}
+                  >
+                    <span className="text-xl sm:text-2xl">✕</span>
+                  </button>
                 )}
               </div>
               
               {/* 달력 팝오버 */}
               {showCalendar && (
                 <div className="relative mt-2">
-                  <div className="absolute top-2 left-0 right-0 sm:left-0 sm:right-auto z-10 bg-white shadow-lg rounded-lg border max-w-sm mx-auto sm:mx-0">
+                  <div className="absolute top-2 left-0 right-0 sm:left-0 sm:right-auto z-50 bg-white shadow-lg rounded-lg border max-w-sm mx-auto sm:mx-0">
                     <Calendar 
                       selectedDate={formData.date || new Date()}
                       onDateSelect={handleDateSelect}
