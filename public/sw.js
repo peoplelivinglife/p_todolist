@@ -6,8 +6,8 @@ const OFFLINE_URL = '/offline.html';
 const CORE_CACHE_FILES = [
   '/',
   '/manifest.json',
-  '/mydaylist/pavicon.png',
-  '/mydaylist/logo_main.png',
+  '/pavicon.png',
+  '/logo_main.png',
   '/offline.html'
 ];
 
@@ -124,8 +124,8 @@ self.addEventListener('push', (event) => {
     const data = event.data.json();
     const options = {
       body: data.body,
-      icon: '/mydaylist/logo_main.png',
-      badge: '/mydaylist/pavicon.png',
+      icon: '/logo_main.png',
+      badge: '/pavicon.png',
       vibrate: [100, 50, 100],
       data: data.data || {}
     };
