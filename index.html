@@ -2,9 +2,26 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/pavicon.png" />
+    <link rel="icon" type="image/png" href="/mydaylist/pavicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ducklylist - 느슨하지만 효율적인 할 일 관리</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="간단하고 효율적인 할 일 관리 앱" />
+    <meta name="theme-color" content="#1f2937" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ducklylist" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/mydaylist/logo_main.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/mydaylist/logo_main.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/mydaylist/logo_main.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/mydaylist/logo_main.png" />
     
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-RW2FCGJ9D2"></script>
@@ -18,5 +35,20 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Service Worker 등록 -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered: ', registration);
+            })
+            .catch((registrationError) => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

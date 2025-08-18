@@ -12,6 +12,7 @@ import PrivacyPage from './pages/PrivacyPage'
 import TermsPage from './pages/TermsPage'
 import { AuthProvider, useAuth } from './hooks/useAuth.jsx'
 import LoadingSpinner from './components/LoadingSpinner'
+import { OfflineIndicator } from './components/OfflineIndicator'
 import { trackPageView } from './utils/analytics'
 
 function ProtectedRoute({ children }) {
@@ -78,6 +79,7 @@ export default function App(){
   return (
     <AuthProvider>
       <PageTracker />
+      <OfflineIndicator />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />

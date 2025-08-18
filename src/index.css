@@ -106,8 +106,52 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background-color: #f8fafc;
+  /* iOS Safari PWA 최적화 */
+  -webkit-touch-callout: none;
+  -webkit-text-size-adjust: 100%;
+  /* 안드로이드 Chrome PWA 최적화 */
+  overscroll-behavior: none;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* PWA 상태바 및 노치 대응 */
+@supports (padding: max(0px)) {
+  body {
+    padding-top: max(env(safe-area-inset-top), 0px);
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
+}
+
+/* iOS Safari PWA 스크롤 최적화 */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 터치 액션 최적화 */
+.touch-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 풀스크린 PWA 상태바 색상 */
+@media (display-mode: standalone) {
+  :root {
+    --status-bar-height: env(safe-area-inset-top);
+  }
+  
+  body {
+    padding-top: var(--status-bar-height);
+  }
+}
+
+/* iOS 홈 인디케이터 영역 고려 */
+@media (display-mode: standalone) and (orientation: portrait) {
+  body {
+    padding-bottom: max(env(safe-area-inset-bottom), 20px);
+  }
 }

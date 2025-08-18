@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth.jsx'
+import { usePWA } from '../hooks/usePWA'
 
 export default function UserProfile() {
   const { user, signOut } = useAuth()
+  const { isInstallable, isStandalone, installPWA } = usePWA()
   const [showMenu, setShowMenu] = useState(false)
 
   if (!user) return null
@@ -10,6 +12,13 @@ export default function UserProfile() {
   const handleSignOut = async () => {
     await signOut()
     setShowMenu(false)
+  }
+
+  const handleInstallApp = async () => {
+    const success = await installPWA()
+    if (success) {
+      setShowMenu(false)
+    }
   }
 
   return (
@@ -65,6 +74,15 @@ export default function UserProfile() {
             </div>
             
             <div className="p-2">
+              {isInstallable && !isStandalone && (
+                <button
+                  onClick={handleInstallApp}
+                  className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors mb-1 flex items-center gap-2"
+                >
+                  <span>📱</span>
+                  앱으로 설치하기
+                </button>
+              )}
               <button
                 onClick={handleSignOut}
                 className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
