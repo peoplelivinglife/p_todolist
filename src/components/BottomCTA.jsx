@@ -8,7 +8,7 @@ export default function BottomCTA() {
   // AddPage에서는 등록하기 버튼으로 작동
   if (location.pathname === '/add') {
     return (
-      <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-white border-t shadow-lg z-20">
+      <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-white border-t shadow-lg z-20 pb-safe">
         <div className="container-narrow">
           <button
             type="submit"
@@ -26,7 +26,7 @@ export default function BottomCTA() {
   // EditPage에서는 수정하기 버튼으로 작동
   if (location.pathname.startsWith('/edit/')) {
     return (
-      <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-white border-t shadow-lg z-20">
+      <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-white border-t shadow-lg z-20 pb-safe">
         <div className="container-narrow">
           <button
             type="submit"
@@ -44,7 +44,7 @@ export default function BottomCTA() {
   // BacklogPage에서는 백로그 추가 버튼으로 작동
   if (location.pathname === '/backlog') {
     return (
-      <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-white border-t shadow-lg z-20">
+      <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-white border-t shadow-lg z-20 pb-safe">
         <div className="container-narrow">
           <Link 
             to="/add"
@@ -60,7 +60,7 @@ export default function BottomCTA() {
 
   // 다른 페이지에서는 날짜별 추가하기 버튼으로 작동
   return (
-    <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-white border-t shadow-lg z-20">
+    <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-white border-t shadow-lg z-20 pb-safe">
       <div className="container-narrow">
         <Link 
           to={`/add?date=${selectedDateString}`}

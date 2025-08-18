@@ -155,3 +155,15 @@ body {
     padding-bottom: max(env(safe-area-inset-bottom), 20px);
   }
 }
+
+/* PWA 환경에서 하단 CTA 세이프 영역 */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
+}
+
+/* PWA standalone 모드에서 추가 여백 */
+@media (display-mode: standalone) {
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 1.25rem);
+  }
+}
