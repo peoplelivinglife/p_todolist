@@ -1,5 +1,5 @@
 // Service Worker for ducklylist PWA
-const CACHE_NAME = 'ducklylist-v1';
+const CACHE_NAME = 'ducklylist-v2';
 const OFFLINE_URL = '/offline.html';
 
 // 캐시할 핵심 파일들
