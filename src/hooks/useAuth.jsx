@@ -38,8 +38,17 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const signInWithGoogle = async () => {
+    console.log('🔥 Google Sign In Attempt:', {
+      auth: !!auth,
+      googleProvider: !!googleProvider,
+      hasAuth: auth ? 'exists' : 'missing',
+      hasProvider: googleProvider ? 'exists' : 'missing'
+    })
+    
     if (!auth || !googleProvider) {
-      setError('Firebase authentication is not configured')
+      const errorMsg = `Firebase authentication is not configured (auth: ${!!auth}, provider: ${!!googleProvider})`
+      console.error('🔥 Auth Error:', errorMsg)
+      setError(errorMsg)
       return
     }
 

@@ -28,10 +28,20 @@ export let db = null
 export let auth = null
 export let googleProvider = null
 
-console.log('Environment variables:', {
+console.log('🔥 Firebase Environment Check:', {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY ? 'exists' : 'missing',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
+})
+
+console.log('🔥 Build Environment:', {
+  NODE_ENV: import.meta.env.NODE_ENV,
+  MODE: import.meta.env.MODE,
+  PROD: import.meta.env.PROD,
+  DEV: import.meta.env.DEV
 })
 
 if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'your_api_key_here') {
