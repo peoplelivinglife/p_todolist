@@ -14,12 +14,12 @@ import {
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAQJaemxftezZORzxuXV_LuzJZ0pVQoKPI",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "ducklylist.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "ducklylist",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "ducklylist.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "427621995112",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:427621995112:web:974a10fcc5b6609b3661dd"
 }
 
 // Firebase 초기화 (환경변수가 있을 때만)
@@ -44,7 +44,7 @@ console.log('🔥 Build Environment:', {
   DEV: import.meta.env.DEV
 })
 
-if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'your_api_key_here') {
+if (firebaseConfig.apiKey) {
   try {
     app = initializeApp(firebaseConfig)
     db = getFirestore(app)
