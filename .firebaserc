@@ -1,5 +1,15 @@
 {
   "projects": {
-    "default": "ducklylist"
+    "default": "ducklylist",
+    "production": "ducklylist",
+    "staging": "ducklylist"
+  },
+  "targets": {
+    "ducklylist": {
+      "hosting": {
+        "production": ["ducklylist"],
+        "staging": ["stg-ducklylist"]
+      }
+    }
   }
 }
