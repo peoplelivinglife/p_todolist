@@ -103,7 +103,8 @@ export default function UserProfile() {
             </div>
             
             <div className="p-2">
-              {shouldShowInstallButton() && (
+              {/* PWA 설치 버튼 임시 비활성화 */}
+              {/* {shouldShowInstallButton() && (
                 <button
                   onClick={handleInstallApp}
                   className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors mb-1 flex items-center gap-2"
@@ -114,7 +115,7 @@ export default function UserProfile() {
                     <span className="text-xs text-gray-400">안내</span>
                   )}
                 </button>
-              )}
+              )} */}
               <button
                 onClick={handleSignOut}
                 className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
