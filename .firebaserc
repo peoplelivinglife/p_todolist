@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "ducklylist"
-  }
+  },
+  "targets": {
+    "ducklylist": {
+      "hosting": {
+        "staging": [
+          "stg-ducklylist"
+        ],
+        "production": [
+          "ducklylist"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
