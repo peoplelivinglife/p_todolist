@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth.jsx'
+import { usePWA } from '../hooks/usePWA'
 
 export default function UserProfile() {
   const { user, signOut } = useAuth()
+  const { isInstallable, isStandalone, platform, installPWA } = usePWA()
   const [showMenu, setShowMenu] = useState(false)
 
   if (!user) return null
@@ -10,6 +12,42 @@ export default function UserProfile() {
   const handleSignOut = async () => {
     await signOut()
     setShowMenu(false)
+  }
+
+  const handleInstallApp = async () => {
+    if (platform === 'chrome' || platform === 'android') {
+      const success = await installPWA()
+      if (success) {
+        setShowMenu(false)
+      }
+    }
+  }
+
+  const getInstallText = () => {
+    switch (platform) {
+      case 'ios':
+        return 'Safari에서 공유 → 홈 화면에 추가'
+      case 'android':
+        return '앱으로 설치하기'
+      case 'chrome':
+        return '데스크톱 앱으로 설치하기'
+      default:
+        return '앱으로 설치하기'
+    }
+  }
+
+  const shouldShowInstallButton = () => {
+    if (isStandalone) return false
+    
+    switch (platform) {
+      case 'ios':
+        return true // iOS는 항상 안내 표시
+      case 'chrome':
+      case 'android':
+        return isInstallable // Chrome/Android는 beforeinstallprompt 이벤트가 있을 때만
+      default:
+        return false
+    }
   }
 
   return (
@@ -65,6 +103,18 @@ export default function UserProfile() {
             </div>
             
             <div className="p-2">
+              {shouldShowInstallButton() && (
+                <button
+                  onClick={handleInstallApp}
+                  className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors mb-1 flex items-center gap-2"
+                >
+                  <span>📱</span>
+                  <span className="flex-1">{getInstallText()}</span>
+                  {platform === 'ios' && (
+                    <span className="text-xs text-gray-400">안내</span>
+                  )}
+                </button>
+              )}
               <button
                 onClick={handleSignOut}
                 className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"

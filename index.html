@@ -3,8 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/pavicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>ducklylist - 느슨하지만 효율적인 할 일 관리</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="간단하고 효율적인 할 일 관리 앱" />
+    <meta name="theme-color" content="#1f2937" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ducklylist" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/logo_main.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/logo_main.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/logo_main.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/logo_main.png" />
     
     <!-- Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-RW2FCGJ9D2"></script>
@@ -14,9 +31,34 @@
       gtag('js', new Date());
       gtag('config', 'G-RW2FCGJ9D2');
     </script>
+
+  <!-- GPT에 따라 standlalone 감지 스크립트 추가 -->
+    <script>
+      const isStandalone =
+       window.matchMedia('(display-mode: standalone)').matches ||
+       window.navigator.standalone; // iOS 홈화면 앱
+      if (isStandalone) {
+        document.documentElement.classList.add('standalone');
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Service Worker 등록 -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered: ', registration);
+            })
+            .catch((registrationError) => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

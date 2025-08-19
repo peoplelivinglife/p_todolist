@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
-/* 반응형 컨테이너 클래스 */
+/* =========================
+   Layout helpers
+   ========================= */
+
+/* 반응형 컨테이너 */
 .container-narrow {
   width: 100%;
   max-width: 24rem; /* 384px */
@@ -9,55 +13,25 @@
   padding-left: 1rem;
   padding-right: 1rem;
 }
-
 @media (min-width: 640px) {
-  .container-narrow {
-    max-width: 28rem; /* 448px */
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
+  .container-narrow { max-width: 28rem; padding-left: 1.5rem; padding-right: 1.5rem; }
 }
+@media (min-width: 768px) { .container-narrow { max-width: 32rem; } }
+@media (min-width: 1024px){ .container-narrow { max-width: 36rem; } }
+@media (min-width: 1280px){ .container-narrow { max-width: 42rem; } }
 
-@media (min-width: 768px) {
-  .container-narrow {
-    max-width: 32rem; /* 512px */
-  }
-}
-
-@media (min-width: 1024px) {
-  .container-narrow {
-    max-width: 36rem; /* 576px */
-  }
-}
-
-@media (min-width: 1280px) {
-  .container-narrow {
-    max-width: 42rem; /* 672px */
-  }
-}
-
-/* 반응형 카드 클래스 */
+/* 카드 */
 .card {
-  background-color: white;
+  background-color: #fff;
   border-radius: 0.5rem;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   padding: 0.75rem;
 }
+@media (min-width: 640px)  { .card { padding: 1rem; } }
+@media (min-width: 1024px) { .card { padding: 1.25rem; } }
 
-@media (min-width: 640px) {
-  .card {
-    padding: 1rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .card {
-    padding: 1.25rem;
-  }
-}
-
-/* 반응형 입력 필드 */
+/* 입력 필드 */
 .input {
   width: 100%;
   padding: 0.5rem 0.75rem;
@@ -65,21 +39,17 @@
   border-radius: 0.5rem;
   font-size: 0.875rem;
   outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
-
 .input:focus {
-  ring: 2px solid #3b82f6;
   border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.35); /* Tailwind focus:ring 대체 */
 }
-
 @media (min-width: 640px) {
-  .input {
-    font-size: 1rem;
-    padding: 0.5rem 1rem;
-  }
+  .input { font-size: 1rem; padding: 0.5rem 1rem; }
 }
 
-/* 터치 친화적 버튼 */
+/* 터치 타깃 */
 .touch-target {
   min-height: 44px;
   min-width: 44px;
@@ -88,9 +58,12 @@
   justify-content: center;
 }
 
-/* App-specific globals */
+/* =========================
+   App globals
+   ========================= */
+
 :root {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: #213547;
@@ -104,10 +77,44 @@
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  /* iOS 주소창 높이 변동 대응 */
+  min-height: 100dvh;
   background-color: #f8fafc;
 }
+#root { min-height: 100dvh; }
 
-#root {
-  min-height: 100vh;
+/* =========================
+   Safe Area (iOS PWA)
+   ========================= */
+
+/* supports로 감싸지 않음: 일부 브라우저에서 무시되는 문제 방지 */
+.safe-area-top    { padding-top:    max(env(safe-area-inset-top), 0px); }
+.safe-area-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+.safe-area-left   { padding-left:   max(env(safe-area-inset-left), 0px); }
+.safe-area-right  { padding-right:  max(env(safe-area-inset-right), 0px); }
+
+/* 하단 CTA 기본 세이프 패딩 */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
+  /* 구형 iOS 옵션: 필요하면 아래 주석 해제
+  padding-bottom: max(env(safe-area-inset-bottom), constant(safe-area-inset-bottom), 0.75rem);
+  */
 }
+
+/* 홈화면(standalone)에서 여유 더 주기
+   => index.html에 JS로 <html class="standalone"> 추가 권장 */
+.standalone .pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1.25rem);
+  /* 구형 iOS 옵션
+  padding-bottom: calc(constant(safe-area-inset-bottom) + 1.25rem);
+  */
+}
+
+/* 스크롤 영역이 하단 바와 겹치지 않도록 추가 여백이 필요할 때 */
+.content-bottom-gap {
+  /* 바 높이에 맞춰 숫자 조정(예: 버튼 바 4.5~5rem) */
+  padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);
+}
+
+/* 필요 시 전체 화면 강제 */
+.min-screen { min-height: 100dvh; }

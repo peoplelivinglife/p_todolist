@@ -1,0 +1,30 @@
+{
+  "name": "ducklylist - 느슨하지만 효율적인 할 일 관리",
+  "short_name": "ducklylist",
+  "description": "간단하고 효율적인 할 일 관리 앱",
+  "theme_color": "#1f2937",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "start_url": "/",
+  "scope": "/",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "utilities"],
+  "lang": "ko",
+  "dir": "auto",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/logo_main.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo_main.png",
+      "sizes": "512x512", 
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
