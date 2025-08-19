@@ -33,13 +33,13 @@ jobs:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUCKLYLIST }}'
           projectId: ducklylist
-          target: production
+          channelId: live
+          entryPoint: '.'
 
-      - name: Deploy to Staging (develop branch)
+      - name: Deploy to Staging (develop branch)  
         if: github.ref == 'refs/heads/develop'
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUCKLYLIST }}'
-          projectId: ducklylist
-          target: staging
+        run: |
+          npm install -g firebase-tools
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_DUCKLYLIST }}' > $HOME/gcloud-service-key.json
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcloud-service-key.json
+          firebase deploy --only hosting:staging --project ducklylist
