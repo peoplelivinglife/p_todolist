@@ -7,9 +7,14 @@
   "targets": {
     "ducklylist": {
       "hosting": {
-        "production": ["ducklylist"],
-        "staging": ["stg-ducklylist"]
+        "staging": [
+          "stg-ducklylist"
+        ],
+        "production": [
+          "ducklylist"
+        ]
       }
     }
-  }
+  },
+  "etags": {}
 }
