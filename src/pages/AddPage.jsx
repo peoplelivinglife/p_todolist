@@ -28,7 +28,8 @@ export default function AddPage() {
   const [formData, setFormData] = useState({
     title: '',
     date: new Date(),
-    tag: TAG_COLORS[0].id
+    tag: TAG_COLORS[0].id,
+    checklist: []
   })
 
   const [showCalendar, setShowCalendar] = useState(false)
@@ -106,6 +107,50 @@ export default function AddPage() {
     setFormData(prev => ({ ...prev, tag: tagId }))
   }
 
+  // 체크리스트 항목 추가
+  const addChecklistItem = (text = '') => {
+    const newItem = {
+      id: Date.now().toString(),
+      text: text.trim(),
+      completed: false
+    }
+    setFormData(prev => ({ 
+      ...prev, 
+      checklist: [...prev.checklist, newItem]
+    }))
+    return newItem.id
+  }
+
+  // 체크리스트 항목 업데이트
+  const updateChecklistItem = (id, updates) => {
+    setFormData(prev => ({
+      ...prev,
+      checklist: prev.checklist.map(item => 
+        item.id === id ? { ...item, ...updates } : item
+      )
+    }))
+  }
+
+  // 체크리스트 항목 삭제
+  const removeChecklistItem = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      checklist: prev.checklist.filter(item => item.id !== id)
+    }))
+  }
+
+  // 체크리스트 입력에서 엔터 키 처리
+  const handleChecklistKeyPress = (e, itemId) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const text = e.target.value.trim()
+      if (text) {
+        updateChecklistItem(itemId, { text })
+        addChecklistItem() // 새로운 빈 항목 추가
+      }
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -133,7 +178,8 @@ export default function AddPage() {
           title: formData.title.trim(),
           date: formData.date ? formatISODate(formData.date) : null,
           tag: formData.tag,
-          completed: false
+          completed: false,
+          checklist: formData.checklist.filter(item => item.text.trim()) // 빈 항목 제외
         })
       } else {
         // Mock 모드
@@ -143,6 +189,7 @@ export default function AddPage() {
           date: formData.date ? formatISODate(formData.date) : null,
           tag: formData.tag,
           completed: false,
+          checklist: formData.checklist.filter(item => item.text.trim()),
           createdAt: new Date()
         })
       }
@@ -261,6 +308,55 @@ export default function AddPage() {
               <div className="text-sm sm:text-base text-gray-500 mt-2">
                 {formData.title.length}/60자
               </div>
+            </div>
+
+            {/* 체크리스트 */}
+            <div style={{ marginBottom: '24px' }}>
+              <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2 sm:mb-3">
+                체크리스트 (선택사항)
+              </label>
+              
+              {/* 체크리스트 항목들 */}
+              <div className="space-y-2 mb-3">
+                {formData.checklist.map((item, index) => (
+                  <div key={item.id} className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={item.completed}
+                      onChange={(e) => updateChecklistItem(item.id, { completed: e.target.checked })}
+                      className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      value={item.text}
+                      onChange={(e) => updateChecklistItem(item.id, { text: e.target.value })}
+                      onKeyPress={(e) => handleChecklistKeyPress(e, item.id)}
+                      placeholder="체크리스트를 입력하세요"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeChecklistItem(item.id)}
+                      className="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                      disabled={isLoading}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* 체크리스트 추가 버튼 */}
+              <button
+                type="button"
+                onClick={() => addChecklistItem()}
+                className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                disabled={isLoading}
+              >
+                <span>+</span>
+                <span>체크리스트 항목 추가</span>
+              </button>
             </div>
 
             {/* 날짜 선택 */}

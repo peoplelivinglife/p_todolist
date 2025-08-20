@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { format, addDays, subDays } from 'date-fns'
 import { useDateContext } from '../hooks/useDateContext'
 import { getUserTodos, updateUserTodo, deleteUserTodo } from '../lib/firestore'
@@ -20,6 +20,7 @@ const TAG_COLORS = [
 export default function EditPage() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { setSelectedDate } = useDateContext()
   const titleInputRef = useRef(null)
@@ -27,7 +28,8 @@ export default function EditPage() {
   const [formData, setFormData] = useState({
     title: '',
     date: new Date(),
-    tag: TAG_COLORS[0].id
+    tag: TAG_COLORS[0].id,
+    checklist: []
   })
   const [showCalendar, setShowCalendar] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -60,7 +62,8 @@ export default function EditPage() {
         setFormData({
           title: todo.title,
           date: todo.date ? new Date(todo.date + 'T00:00:00') : null,
-          tag: todo.tag
+          tag: todo.tag,
+          checklist: todo.checklist || []
         })
       } else {
         showToast('할 일을 찾을 수 없습니다', 'error')
@@ -120,6 +123,50 @@ export default function EditPage() {
     setFormData(prev => ({ ...prev, tag: tagId }))
   }
 
+  // 체크리스트 항목 추가
+  const addChecklistItem = (text = '') => {
+    const newItem = {
+      id: Date.now().toString(),
+      text: text.trim(),
+      completed: false
+    }
+    setFormData(prev => ({ 
+      ...prev, 
+      checklist: [...prev.checklist, newItem]
+    }))
+    return newItem.id
+  }
+
+  // 체크리스트 항목 업데이트
+  const updateChecklistItem = (id, updates) => {
+    setFormData(prev => ({
+      ...prev,
+      checklist: prev.checklist.map(item => 
+        item.id === id ? { ...item, ...updates } : item
+      )
+    }))
+  }
+
+  // 체크리스트 항목 삭제
+  const removeChecklistItem = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      checklist: prev.checklist.filter(item => item.id !== id)
+    }))
+  }
+
+  // 체크리스트 입력에서 엔터 키 처리
+  const handleChecklistKeyPress = (e, itemId) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const text = e.target.value.trim()
+      if (text) {
+        updateChecklistItem(itemId, { text })
+        addChecklistItem() // 새로운 빈 항목 추가
+      }
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -141,7 +188,8 @@ export default function EditPage() {
       await updateUserTodo(user.uid, id, {
         title: formData.title.trim(),
         date: formData.date ? formatISODate(formData.date) : null,
-        tag: formData.tag
+        tag: formData.tag,
+        checklist: formData.checklist.filter(item => item.text.trim()) // 빈 항목 제외
       })
 
       // Google Analytics 이벤트 추적
@@ -152,12 +200,20 @@ export default function EditPage() {
 
       showToast('할 일이 수정되었습니다', 'success')
 
-      // 성공 시 이동 처리
-      if (formData.date) {
-        setSelectedDate(formData.date)
+      // 어디서 왔는지에 따라 적절한 페이지로 이동
+      const fromPage = searchParams.get('from')
+      const returnDate = searchParams.get('date')
+      
+      if (fromPage === 'calendar' && returnDate) {
+        // 캘린더에서 왔으면 원래 날짜로 돌아가기
+        setSelectedDate(new Date(returnDate + 'T00:00:00'))
         navigate('/')
-      } else {
+      } else if (fromPage === 'backlog') {
+        // 백로그에서 왔으면 백로그로 돌아가기
         navigate('/backlog')
+      } else {
+        // 기본적으로는 뒤로가기
+        navigate(-1)
       }
     } catch (err) {
       showToast('네트워크 오류, 다시 시도해주세요', 'error')
@@ -186,7 +242,22 @@ export default function EditPage() {
       trackTodoEvent('todo_delete', {})
 
       showToast('할 일이 삭제되었습니다', 'success')
-      navigate('/')
+      
+      // 어디서 왔는지에 따라 적절한 페이지로 이동
+      const fromPage = searchParams.get('from')
+      const returnDate = searchParams.get('date')
+      
+      if (fromPage === 'calendar' && returnDate) {
+        // 캘린더에서 왔으면 원래 날짜로 돌아가기
+        setSelectedDate(new Date(returnDate + 'T00:00:00'))
+        navigate('/')
+      } else if (fromPage === 'backlog') {
+        // 백로그에서 왔으면 백로그로 돌아가기
+        navigate('/backlog')
+      } else {
+        // 백로그로 이동
+        navigate('/backlog')
+      }
     } catch (err) {
       showToast('네트워크 오류, 다시 시도해주세요', 'error')
       console.error('Error deleting todo:', err)
@@ -292,6 +363,56 @@ export default function EditPage() {
               <div className="text-sm sm:text-base text-gray-500 mt-2">
                 {formData.title.length}/60자
               </div>
+            </div>
+
+            {/* 체크리스트 */}
+            <div style={{ marginBottom: '24px' }}>
+              <label className="block text-base sm:text-lg font-medium text-gray-700 mb-2 sm:mb-3">
+                체크리스트 (선택사항)
+              </label>
+              
+              {/* 체크리스트 항목들 */}
+              <div className="space-y-2 mb-3">
+                {formData.checklist.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={item.completed}
+                      onChange={(e) => updateChecklistItem(item.id, { completed: e.target.checked })}
+                      className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                      disabled={isLoading}
+                    />
+                    <input
+                      type="text"
+                      value={item.text}
+                      onChange={(e) => updateChecklistItem(item.id, { text: e.target.value })}
+                      onKeyPress={(e) => handleChecklistKeyPress(e, item.id)}
+                      placeholder="체크리스트를 입력하세요"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeChecklistItem(item.id)}
+                      className="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                      disabled={isLoading}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* 체크리스트 추가 버튼 */}
+              <button
+                type="button"
+                onClick={() => addChecklistItem()}
+                className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                disabled={isLoading}
+              >
+                <span>+</span>
+                <span>체크리스트 항목 추가</span>
+              </button>
             </div>
 
             {/* 날짜 선택 */}

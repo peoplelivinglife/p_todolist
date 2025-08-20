@@ -93,3 +93,37 @@ export const createWhereCondition = (field, operator, value) => {
 export const createOrderByCondition = (field, direction = 'asc') => {
   return firebaseOrderBy(field, direction)
 }
+
+// 사용자 방문 기록 관리
+export const getUserVisitsCollection = (userId) => {
+  if (!db || !userId) return null
+  return firebaseCollection(db, 'users', userId, 'visits')
+}
+
+export const addUserVisit = async (userId, date) => {
+  if (!db || !userId) {
+    throw new Error('Database not initialized or user not authenticated')
+  }
+
+  const userVisitsCollection = getUserVisitsCollection(userId)
+  const dateString = typeof date === 'string' ? date : date.toISOString().split('T')[0]
+  
+  return await firebaseAddDoc(userVisitsCollection, {
+    date: dateString,
+    timestamp: new Date(),
+    userId
+  })
+}
+
+export const getUserVisits = async (userId) => {
+  if (!db || !userId) {
+    throw new Error('Database not initialized or user not authenticated')
+  }
+
+  const userVisitsCollection = getUserVisitsCollection(userId)
+  const querySnapshot = await firebaseGetDocs(userVisitsCollection)
+  return querySnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }))
+}

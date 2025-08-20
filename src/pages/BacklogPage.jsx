@@ -285,12 +285,12 @@ export default function BacklogPage() {
               {todos.map(todo => (
                 <div key={todo.id} className="relative mb-4">
                 <div className="card hover:shadow-md transition-shadow" style={{ padding: '16px', marginBottom: '16px' }}>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-start gap-4">
                     {/* 완료 체크박스 */}
                     <button
                       onClick={() => toggleCompleted(todo.id, todo.completed)}
                       className={`
-                        w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center transition-colors
+                        w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-1
                         ${todo.completed 
                           ? 'bg-green-500 border-green-500 text-white' 
                           : 'border-gray-300 hover:border-green-400 active:border-green-500'
@@ -301,9 +301,9 @@ export default function BacklogPage() {
                     </button>
 
                     {/* 태그 색상 표시 */}
-                    <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full ${TAG_COLORS[todo.tag]}`} />
+                    <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full flex-shrink-0 mt-2 ${TAG_COLORS[todo.tag]}`} />
 
-                    {/* 제목 */}
+                    {/* 제목과 체크리스트 */}
                     <div className="flex-1 min-w-0">
                       <h3 className={`
                         font-semibold transition-all text-base sm:text-lg md:text-xl
@@ -314,25 +314,81 @@ export default function BacklogPage() {
                       `} style={{ lineHeight: '1.5' }}>
                         {todo.title}
                       </h3>
+                      
+                      {/* 체크리스트 표시 */}
+                      {todo.checklist && todo.checklist.length > 0 && (
+                        <div className="mt-3 space-y-2 ml-2">
+                          {todo.checklist.map((item) => (
+                            <div key={item.id} className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={item.completed}
+                                onChange={async (e) => {
+                                  // 체크리스트 항목 업데이트 로직
+                                  const updatedChecklist = todo.checklist.map(checkItem => 
+                                    checkItem.id === item.id ? { ...checkItem, completed: e.target.checked } : checkItem
+                                  )
+                                  
+                                  try {
+                                    await updateUserTodo(user.uid, todo.id, { checklist: updatedChecklist })
+                                    
+                                    // 로컬 상태 업데이트
+                                    setTodos(prev => prev.map(t => 
+                                      t.id === todo.id ? { ...t, checklist: updatedChecklist } : t
+                                    ))
+                                    
+                                    // 모든 체크리스트가 완료되었는지 확인
+                                    const allCompleted = updatedChecklist.every(checkItem => checkItem.completed)
+                                    const anyIncomplete = updatedChecklist.some(checkItem => !checkItem.completed)
+                                    
+                                    if (allCompleted && updatedChecklist.length > 0 && !todo.completed) {
+                                      // 할일 자동 완료
+                                      await updateUserTodo(user.uid, todo.id, { completed: true })
+                                      setTodos(prev => prev.map(t => 
+                                        t.id === todo.id ? { ...t, completed: true } : t
+                                      ))
+                                    } else if (anyIncomplete && todo.completed) {
+                                      // 체크리스트에 미완료 항목이 있으면 할일도 미완료로 변경
+                                      await updateUserTodo(user.uid, todo.id, { completed: false })
+                                      setTodos(prev => prev.map(t => 
+                                        t.id === todo.id ? { ...t, completed: false } : t
+                                      ))
+                                    }
+                                  } catch (error) {
+                                    console.error('Error updating checklist:', error)
+                                  }
+                                }}
+                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                              />
+                              <span className={`flex-1 ${item.completed ? 'line-through text-gray-500' : 'text-gray-700'}`}>
+                                {item.text}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
-                    {/* 편집 버튼 */}
-                    <button
-                      onClick={() => navigate(`/edit/${todo.id}`)}
-                      className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
-                    >
-                      <span className="text-base sm:text-lg">✏️</span>
-                    </button>
+                    {/* 우측 버튼들 */}
+                    <div className="flex items-start gap-2 flex-shrink-0 mt-1">
+                      {/* 편집 버튼 */}
+                      <button
+                        onClick={() => navigate(`/edit/${todo.id}?from=backlog`)}
+                        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        <span className="text-base sm:text-lg">✏️</span>
+                      </button>
 
-                    {/* 날짜 배정 버튼 */}
-                    <button
-                      onClick={() => setDateAssignPopover(
-                        dateAssignPopover === todo.id ? null : todo.id
-                      )}
-                      className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
-                    >
-                      <span className="text-xl sm:text-2xl">📅</span>
-                    </button>
+                      {/* 날짜 배정 버튼 */}
+                      <button
+                        onClick={() => setDateAssignPopover(
+                          dateAssignPopover === todo.id ? null : todo.id
+                        )}
+                        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        <span className="text-base sm:text-lg">📅</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -364,12 +420,12 @@ export default function BacklogPage() {
               {overdueTodos.map(todo => (
                 <div key={todo.id} className="relative mb-4">
                   <div className="card hover:shadow-md transition-shadow" style={{ padding: '16px', marginBottom: '16px' }}>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-start gap-4">
                       {/* 완료 체크박스 */}
                       <button
                         onClick={() => toggleCompleted(todo.id, todo.completed)}
                         className={`
-                          w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center transition-colors
+                          w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-1
                           ${todo.completed 
                             ? 'bg-green-500 border-green-500 text-white' 
                             : 'border-gray-300 hover:border-green-400 active:border-green-500'
@@ -380,9 +436,9 @@ export default function BacklogPage() {
                       </button>
 
                       {/* 태그 색상 표시 */}
-                      <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full ${TAG_COLORS[todo.tag]}`} />
+                      <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full flex-shrink-0 mt-2 ${TAG_COLORS[todo.tag]}`} />
 
-                      {/* 제목과 날짜 정보 */}
+                      {/* 제목, 날짜 정보, 체크리스트 */}
                       <div className="flex-1 min-w-0">
                         <h3 className={`
                           font-semibold transition-all text-base sm:text-lg md:text-xl
@@ -396,25 +452,81 @@ export default function BacklogPage() {
                         <p className="text-sm sm:text-base text-red-600 mt-1">
                           📅 {todo.date} (지연됨)
                         </p>
+                        
+                        {/* 체크리스트 표시 */}
+                        {todo.checklist && todo.checklist.length > 0 && (
+                          <div className="mt-3 space-y-2 ml-2">
+                            {todo.checklist.map((item) => (
+                              <div key={item.id} className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={item.completed}
+                                  onChange={async (e) => {
+                                    // 체크리스트 항목 업데이트 로직
+                                    const updatedChecklist = todo.checklist.map(checkItem => 
+                                      checkItem.id === item.id ? { ...checkItem, completed: e.target.checked } : checkItem
+                                    )
+                                    
+                                    try {
+                                      await updateUserTodo(user.uid, todo.id, { checklist: updatedChecklist })
+                                      
+                                      // 로컬 상태 업데이트
+                                      setOverdueTodos(prev => prev.map(t => 
+                                        t.id === todo.id ? { ...t, checklist: updatedChecklist } : t
+                                      ))
+                                      
+                                      // 모든 체크리스트가 완료되었는지 확인
+                                      const allCompleted = updatedChecklist.every(checkItem => checkItem.completed)
+                                      const anyIncomplete = updatedChecklist.some(checkItem => !checkItem.completed)
+                                      
+                                      if (allCompleted && updatedChecklist.length > 0 && !todo.completed) {
+                                        // 할일 자동 완료
+                                        await updateUserTodo(user.uid, todo.id, { completed: true })
+                                        setOverdueTodos(prev => prev.map(t => 
+                                          t.id === todo.id ? { ...t, completed: true } : t
+                                        ))
+                                      } else if (anyIncomplete && todo.completed) {
+                                        // 체크리스트에 미완료 항목이 있으면 할일도 미완료로 변경
+                                        await updateUserTodo(user.uid, todo.id, { completed: false })
+                                        setOverdueTodos(prev => prev.map(t => 
+                                          t.id === todo.id ? { ...t, completed: false } : t
+                                        ))
+                                      }
+                                    } catch (error) {
+                                      console.error('Error updating checklist:', error)
+                                    }
+                                  }}
+                                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <span className={`flex-1 ${item.completed ? 'line-through text-gray-500' : 'text-gray-700'}`}>
+                                  {item.text}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
-                      {/* 편집 버튼 */}
-                      <button
-                        onClick={() => navigate(`/edit/${todo.id}`)}
-                        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
-                      >
-                        <span className="text-base sm:text-lg">✏️</span>
-                      </button>
+                      {/* 우측 버튼들 */}
+                      <div className="flex items-start gap-2 flex-shrink-0 mt-1">
+                        {/* 편집 버튼 */}
+                        <button
+                          onClick={() => navigate(`/edit/${todo.id}?from=backlog`)}
+                          className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          <span className="text-base sm:text-lg">✏️</span>
+                        </button>
 
-                      {/* 날짜 배정 버튼 */}
-                      <button
-                        onClick={() => setDateAssignPopover(
-                          dateAssignPopover === todo.id ? null : todo.id
-                        )}
-                        className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
-                      >
-                        <span className="text-xl sm:text-2xl">📅</span>
-                      </button>
+                        {/* 날짜 배정 버튼 */}
+                        <button
+                          onClick={() => setDateAssignPopover(
+                            dateAssignPopover === todo.id ? null : todo.id
+                          )}
+                          className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          <span className="text-base sm:text-lg">📅</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
 

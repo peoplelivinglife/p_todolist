@@ -3,7 +3,7 @@ import { addDays, subDays, format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import Calendar from '../components/Calendar'
 import { useDateContext } from '../hooks/useDateContext'
-import { updateUserTodo, getUserTodos, createWhereCondition } from '../lib/firestore'
+import { updateUserTodo, getUserTodos, createWhereCondition, addUserVisit, getUserVisits } from '../lib/firestore'
 import { useAuth } from '../hooks/useAuth.jsx'
 import { formatISODate } from '../utils/dateUtils'
 import { useToast } from '../hooks/useToast'
@@ -23,9 +23,66 @@ export default function CalendarPage(){
   const [showCalendar, setShowCalendar] = useState(false)
   const [todos, setTodos] = useState([])
   const [allTodos, setAllTodos] = useState([]) // 캘린더 표시용 전체 할 일 데이터
+  const [visits, setVisits] = useState([]) // 사용자 방문 기록
   const [loading, setLoading] = useState(false)
   const { toast, showToast, hideToast } = useToast()
   const navigate = useNavigate()
+
+  // 연속출석일 계산 함수 (사용자 방문 기록 기반)
+  const calculateStreakDays = () => {
+    if (!visits.length) return 0
+    
+    // 방문한 날짜들을 추출하고 정렬
+    const visitDates = [...new Set(visits.map(visit => visit.date))].sort()
+    
+    if (visitDates.length === 0) return 0
+    
+    let streak = 0
+    let currentDate = new Date()
+    currentDate.setHours(0, 0, 0, 0)
+    
+    // 오늘부터 역순으로 연속일 계산
+    while (true) {
+      const dateString = formatISODate(currentDate)
+      if (visitDates.includes(dateString)) {
+        streak++
+        currentDate = subDays(currentDate, 1)
+      } else {
+        break
+      }
+    }
+    
+    return streak
+  }
+
+  // 연속출석일에 따른 메시지 생성
+  const getStreakMessage = (days) => {
+    if (days === 0) return null
+    
+    let message = ""
+    if (days <= 3) {
+      message = "작심삼일을 반복하면 그게 습관이죠!"
+    } else if (days <= 7) {
+      message = "습관이 되고 있덕!🦆"
+    } else if (days <= 30) {
+      message = "일주일이 넘었네요. 혹시 J인가요?"
+    } else {
+      message = "습관이 되었네요. 나날이 발전하는 모습이 느껴져요!🦆"
+    }
+    
+    return `연속 출석 ${days}일 째! ${message}`
+  }
+
+  // 사용자 방문 기록
+  useEffect(() => {
+    if (user) {
+      const initializeVisits = async () => {
+        await loadUserVisits()
+        await recordUserVisit()
+      }
+      initializeVisits()
+    }
+  }, [user])
 
   // 선택된 날짜의 할 일 불러오기
   useEffect(() => {
@@ -47,6 +104,7 @@ export default function CalendarPage(){
       if (!document.hidden && user) {
         loadTodosForDate(selectedDate)
         loadAllTodos() // 전체 할 일도 새로고침
+        loadUserVisits() // 방문 기록도 새로고침
       }
     }
 
@@ -54,6 +112,7 @@ export default function CalendarPage(){
       if (user) {
         loadTodosForDate(selectedDate)
         loadAllTodos() // 전체 할 일도 새로고침
+        loadUserVisits() // 방문 기록도 새로고침
       }
     }
 
@@ -63,6 +122,7 @@ export default function CalendarPage(){
         setTimeout(() => {
           loadTodosForDate(selectedDate)
           loadAllTodos()
+          loadUserVisits() // 방문 기록도 새로고침
         }, 100)
       }
     }
@@ -78,6 +138,40 @@ export default function CalendarPage(){
       window.removeEventListener('pageshow', handleNavigation)
     }
   }, [selectedDate, user])
+
+  const loadUserVisits = async () => {
+    if (!user) {
+      setVisits([])
+      return
+    }
+    
+    try {
+      const visitData = await getUserVisits(user.uid)
+      console.log('Loaded user visits:', visitData)
+      setVisits(visitData)
+    } catch (error) {
+      console.error('Error loading user visits:', error)
+      setVisits([])
+    }
+  }
+
+  const recordUserVisit = async () => {
+    if (!user) return
+    
+    try {
+      const today = formatISODate(new Date())
+      
+      // 오늘 이미 방문 기록이 있는지 확인
+      const existingVisit = visits.find(visit => visit.date === today)
+      if (!existingVisit) {
+        await addUserVisit(user.uid, today)
+        // 방문 기록을 다시 로드하여 상태 업데이트
+        await loadUserVisits()
+      }
+    } catch (error) {
+      console.error('Error recording user visit:', error)
+    }
+  }
 
   const loadAllTodos = async () => {
     if (!user) {
@@ -215,6 +309,26 @@ export default function CalendarPage(){
           </button>
         </div>
 
+        {/* 연속출석일 메시지 */}
+        {(() => {
+          const streakDays = calculateStreakDays()
+          const streakMessage = getStreakMessage(streakDays)
+          console.log('Streak days:', streakDays, 'Message:', streakMessage, 'Visits:', visits)
+          return streakMessage ? (
+            <div className="mb-6 sm:mb-8 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-4 text-center">
+              <p className="text-sm sm:text-base md:text-lg font-medium text-blue-800">
+                {streakMessage}
+              </p>
+            </div>
+          ) : (
+            <div className="mb-6 sm:mb-8 bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+              <p className="text-sm sm:text-base md:text-lg font-medium text-gray-600">
+                디버그: 연속출석 {streakDays}일 (방문기록: {visits.length}개)
+              </p>
+            </div>
+          )
+        })()}
+
         {/* 본문 */}
         <div style={{ minHeight: '400px' }} className="sm:min-h-[500px] md:min-h-[600px]">
           {/* 캘린더 (확장시에만 표시) */}
@@ -244,12 +358,12 @@ export default function CalendarPage(){
               <div className="space-y-3 sm:space-y-4">
                 {todos.map(todo => (
                   <div key={todo.id} className="card hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-start gap-4">
                       {/* 완료 체크박스 */}
                       <button
                         onClick={() => toggleCompleted(todo.id, todo.completed)}
                         className={`
-                          w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center transition-colors
+                          w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0 mt-1
                           ${todo.completed 
                             ? 'bg-green-500 border-green-500 text-white' 
                             : 'border-gray-300 hover:border-green-400 active:border-green-500'
@@ -260,7 +374,7 @@ export default function CalendarPage(){
                       </button>
 
                       {/* 태그 색상 표시 */}
-                      <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full ${TAG_COLORS[todo.tag]}`} />
+                      <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full flex-shrink-0 mt-2 ${TAG_COLORS[todo.tag]}`} />
 
                       {/* 제목 */}
                       <div className="flex-1 min-w-0">
@@ -273,12 +387,57 @@ export default function CalendarPage(){
                         `} style={{ lineHeight: '1.5' }}>
                           {todo.title}
                         </h3>
+                        
+                        {/* 체크리스트 표시 */}
+                        {todo.checklist && todo.checklist.length > 0 && (
+                          <div className="mt-3 space-y-2 ml-2">
+                            {todo.checklist.map((item) => (
+                              <div key={item.id} className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={item.completed}
+                                  onChange={async (e) => {
+                                    // 체크리스트 항목 업데이트 로직
+                                    const updatedChecklist = todo.checklist.map(checkItem => 
+                                      checkItem.id === item.id ? { ...checkItem, completed: e.target.checked } : checkItem
+                                    )
+                                    
+                                    try {
+                                      await updateUserTodo(user.uid, todo.id, { checklist: updatedChecklist })
+                                      
+                                      // 로컬 상태 업데이트
+                                      setTodos(prev => prev.map(t => 
+                                        t.id === todo.id ? { ...t, checklist: updatedChecklist } : t
+                                      ))
+                                      
+                                      // 모든 체크리스트가 완료되었는지 확인
+                                      const allCompleted = updatedChecklist.every(checkItem => checkItem.completed)
+                                      if (allCompleted && updatedChecklist.length > 0 && !todo.completed) {
+                                        // 할일 자동 완료
+                                        updateUserTodo(user.uid, todo.id, { completed: true })
+                                        setTodos(prev => prev.map(t => 
+                                          t.id === todo.id ? { ...t, completed: true } : t
+                                        ))
+                                      }
+                                    } catch (error) {
+                                      console.error('Error updating checklist:', error)
+                                    }
+                                  }}
+                                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <span className={`flex-1 ${item.completed ? 'line-through text-gray-500' : 'text-gray-700'}`}>
+                                  {item.text}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* 편집 버튼 */}
                       <button
-                        onClick={() => navigate(`/edit/${todo.id}`)}
-                        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
+                        onClick={() => navigate(`/edit/${todo.id}?from=calendar&date=${formatISODate(selectedDate)}`)}
+                        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors flex-shrink-0 mt-1"
                       >
                         <span className="text-base sm:text-lg">✏️</span>
                       </button>

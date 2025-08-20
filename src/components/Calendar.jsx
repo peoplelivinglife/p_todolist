@@ -25,11 +25,13 @@ export default function Calendar({ selectedDate, onDateSelect, todosData = [] })
     end: calendarEnd
   })
 
-  const goToPrevMonth = () => {
+  const goToPrevMonth = (e) => {
+    e.stopPropagation()
     setCurrentMonth(prevMonth => subMonths(prevMonth, 1))
   }
 
-  const goToNextMonth = () => {
+  const goToNextMonth = (e) => {
+    e.stopPropagation()
     setCurrentMonth(prevMonth => addMonths(prevMonth, 1))
   }
 
@@ -43,7 +45,7 @@ export default function Calendar({ selectedDate, onDateSelect, todosData = [] })
     <div className="bg-white rounded-lg border shadow-sm" style={{ padding: '16px' }}>
       {/* 월 네비게이션 */}
       <div className="flex items-center justify-between mb-4">
-        <button 
+        <button type="button"
           onClick={goToPrevMonth}
           className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
         >
@@ -52,7 +54,7 @@ export default function Calendar({ selectedDate, onDateSelect, todosData = [] })
         <h3 className="text-lg sm:text-xl md:text-2xl font-semibold">
           {format(currentMonth, 'yyyy년 M월')}
         </h3>
-        <button 
+        <button type="button"
           onClick={goToNextMonth}
           className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
         >
@@ -78,7 +80,7 @@ export default function Calendar({ selectedDate, onDateSelect, todosData = [] })
           const hasTodos = hasTodosOnDate(day)
 
           return (
-            <button
+            <button type="button"
               key={day.toISOString()}
               onClick={() => onDateSelect(day)}
               className={`
