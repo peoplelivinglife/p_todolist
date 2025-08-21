@@ -117,6 +117,16 @@ export default function UserProfile() {
                 </button>
               )} */}
               <button
+                onClick={() => {
+                  window.open('https://peoplelivinglife.oopy.io/25537499-e225-802f-b35d-dd29696f81d6', '_blank')
+                  setShowMenu(false)
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors mb-1 flex items-center gap-2"
+              >
+                <span>❓</span>
+                <span>도움말</span>
+              </button>
+              <button
                 onClick={handleSignOut}
                 className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
               >
