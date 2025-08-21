@@ -123,20 +123,56 @@ export default function AddPage() {
 
   // 체크리스트 항목 업데이트
   const updateChecklistItem = (id, updates) => {
-    setFormData(prev => ({
-      ...prev,
-      checklist: prev.checklist.map(item => 
+    setFormData(prev => {
+      const updatedChecklist = prev.checklist.map(item => 
         item.id === id ? { ...item, ...updates } : item
       )
-    }))
+      
+      // 체크리스트 상태에 따른 할일 완료 상태 자동 계산
+      let autoCompleted = prev.completed
+      if (updatedChecklist.length > 0) {
+        const allCompleted = updatedChecklist.every(item => item.completed)
+        const hasIncomplete = updatedChecklist.some(item => !item.completed)
+        
+        if (allCompleted && !prev.completed) {
+          autoCompleted = true // 모든 체크리스트 완료 → 할일 자동 완료
+        } else if (hasIncomplete && prev.completed) {
+          autoCompleted = false // 체크리스트 중 하나라도 미완료 → 할일 미완료
+        }
+      }
+      
+      return {
+        ...prev,
+        checklist: updatedChecklist,
+        completed: autoCompleted
+      }
+    })
   }
 
   // 체크리스트 항목 삭제
   const removeChecklistItem = (id) => {
-    setFormData(prev => ({
-      ...prev,
-      checklist: prev.checklist.filter(item => item.id !== id)
-    }))
+    setFormData(prev => {
+      const updatedChecklist = prev.checklist.filter(item => item.id !== id)
+      
+      // 체크리스트 삭제 후 완료 상태 재계산
+      let autoCompleted = prev.completed
+      if (updatedChecklist.length > 0) {
+        const allCompleted = updatedChecklist.every(item => item.completed)
+        const hasIncomplete = updatedChecklist.some(item => !item.completed)
+        
+        if (allCompleted && !prev.completed) {
+          autoCompleted = true
+        } else if (hasIncomplete && prev.completed) {
+          autoCompleted = false
+        }
+      }
+      
+      return {
+        ...prev,
+        checklist: updatedChecklist,
+        completed: autoCompleted
+      }
+    })
   }
 
   // 체크리스트 입력에서 엔터 키 처리
@@ -146,7 +182,34 @@ export default function AddPage() {
       const text = e.target.value.trim()
       if (text) {
         updateChecklistItem(itemId, { text })
-        addChecklistItem() // 새로운 빈 항목 추가
+        
+        // React Strict Mode로 인한 중복 실행 방지
+        setFormData(prev => {
+          // 이미 빈 항목이 있는지 확인
+          const hasEmptyItem = prev.checklist.some(item => item.text.trim() === '')
+          if (hasEmptyItem) {
+            return prev // 빈 항목이 이미 있으면 추가하지 않음
+          }
+          
+          const newItem = {
+            id: Date.now().toString(),
+            text: '',
+            completed: false
+          }
+          
+          // 다음 체크리스트 항목으로 포커스 이동
+          setTimeout(() => {
+            const nextInput = document.querySelector(`input[data-checklist-id="${newItem.id}"]`)
+            if (nextInput) {
+              nextInput.focus()
+            }
+          }, 50)
+          
+          return { 
+            ...prev, 
+            checklist: [...prev.checklist, newItem]
+          }
+        })
       }
     }
   }
@@ -330,7 +393,8 @@ export default function AddPage() {
                       type="text"
                       value={item.text}
                       onChange={(e) => updateChecklistItem(item.id, { text: e.target.value })}
-                      onKeyPress={(e) => handleChecklistKeyPress(e, item.id)}
+                      onKeyDown={(e) => handleChecklistKeyPress(e, item.id)}
+                      data-checklist-id={item.id}
                       placeholder="체크리스트를 입력하세요"
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       disabled={isLoading}

@@ -23,7 +23,7 @@ const firebaseConfig = {
 }
 
 // Firebase 초기화 (환경변수가 있을 때만)
-let app = null
+export let app = null
 export let db = null
 export let auth = null
 export let googleProvider = null

@@ -24,6 +24,7 @@ export default function CalendarPage(){
   const [todos, setTodos] = useState([])
   const [allTodos, setAllTodos] = useState([]) // 캘린더 표시용 전체 할 일 데이터
   const [visits, setVisits] = useState([]) // 사용자 방문 기록
+  const [visitsLoading, setVisitsLoading] = useState(true) // 방문 기록 로딩 상태
   const [loading, setLoading] = useState(false)
   const { toast, showToast, hideToast } = useToast()
   const navigate = useNavigate()
@@ -142,6 +143,7 @@ export default function CalendarPage(){
   const loadUserVisits = async () => {
     if (!user) {
       setVisits([])
+      setVisitsLoading(false)
       return
     }
     
@@ -152,6 +154,8 @@ export default function CalendarPage(){
     } catch (error) {
       console.error('Error loading user visits:', error)
       setVisits([])
+    } finally {
+      setVisitsLoading(false)
     }
   }
 
@@ -311,9 +315,20 @@ export default function CalendarPage(){
 
         {/* 연속출석일 메시지 */}
         {(() => {
+          if (visitsLoading) {
+            return (
+              <div className="mb-6 sm:mb-8 bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                <p className="text-sm sm:text-base md:text-lg font-medium text-gray-600">
+                  연속출석일 확인 중...
+                </p>
+              </div>
+            )
+          }
+          
           const streakDays = calculateStreakDays()
           const streakMessage = getStreakMessage(streakDays)
           console.log('Streak days:', streakDays, 'Message:', streakMessage, 'Visits:', visits)
+          
           return streakMessage ? (
             <div className="mb-6 sm:mb-8 bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-4 text-center">
               <p className="text-sm sm:text-base md:text-lg font-medium text-blue-800">
@@ -323,7 +338,7 @@ export default function CalendarPage(){
           ) : (
             <div className="mb-6 sm:mb-8 bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
               <p className="text-sm sm:text-base md:text-lg font-medium text-gray-600">
-                디버그: 연속출석 {streakDays}일 (방문기록: {visits.length}개)
+                첫 방문이시군요! 꾸준히 방문해서 연속출석 기록을 쌓아보세요 🦆
               </p>
             </div>
           )
@@ -410,14 +425,25 @@ export default function CalendarPage(){
                                         t.id === todo.id ? { ...t, checklist: updatedChecklist } : t
                                       ))
                                       
-                                      // 모든 체크리스트가 완료되었는지 확인
+                                      // 체크리스트 상태에 따른 할일 완료/미완료 자동 처리
+                                      const hasChecklist = updatedChecklist.length > 0
                                       const allCompleted = updatedChecklist.every(checkItem => checkItem.completed)
-                                      if (allCompleted && updatedChecklist.length > 0 && !todo.completed) {
-                                        // 할일 자동 완료
-                                        updateUserTodo(user.uid, todo.id, { completed: true })
-                                        setTodos(prev => prev.map(t => 
-                                          t.id === todo.id ? { ...t, completed: true } : t
-                                        ))
+                                      const hasIncomplete = updatedChecklist.some(checkItem => !checkItem.completed)
+                                      
+                                      if (hasChecklist) {
+                                        if (allCompleted && !todo.completed) {
+                                          // 모든 체크리스트 완료 → 할일 자동 완료
+                                          await updateUserTodo(user.uid, todo.id, { completed: true })
+                                          setTodos(prev => prev.map(t => 
+                                            t.id === todo.id ? { ...t, completed: true } : t
+                                          ))
+                                        } else if (hasIncomplete && todo.completed) {
+                                          // 체크리스트 중 하나라도 미완료 → 할일 미완료로 변경
+                                          await updateUserTodo(user.uid, todo.id, { completed: false })
+                                          setTodos(prev => prev.map(t => 
+                                            t.id === todo.id ? { ...t, completed: false } : t
+                                          ))
+                                        }
                                       }
                                     } catch (error) {
                                       console.error('Error updating checklist:', error)
